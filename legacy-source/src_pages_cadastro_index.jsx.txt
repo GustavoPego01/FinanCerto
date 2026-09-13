@@ -1,4 +1,5 @@
 import { useState } from "react";
+
 import { supabase } from "../../supabase/client";
 
 import "./index.css";
@@ -8,23 +9,40 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
     const [email, setEmail] = useState("");
     const [senha, setSenha] = useState("");
     const [confirmarSenha, setConfirmarSenha] = useState("");
+
+    // Novos dados do perfil financeiro
+    const [objetivoFinanceiro, setObjetivoFinanceiro] = useState("");
+    const [profissao, setProfissao] = useState("");
+    const [salarioMensal, setSalarioMensal] = useState("");
+
     const [carregando, setCarregando] = useState(false);
 
     async function handleSubmit(event) {
         event.preventDefault();
 
-        if (!nome || !email || !senha || !confirmarSenha) {
+        if (
+            !nome ||
+            !email ||
+            !senha ||
+            !confirmarSenha ||
+            !objetivoFinanceiro ||
+            !profissao ||
+            !salarioMensal
+        ) {
             alert("Preencha todos os campos.");
+
             return;
         }
 
         if (senha !== confirmarSenha) {
             alert("As senhas não são iguais.");
+
             return;
         }
 
         if (senha.length < 6) {
             alert("A senha deve ter pelo menos 6 caracteres.");
+
             return;
         }
 
@@ -53,6 +71,11 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
                         id: data.user.id,
                         nome: nome,
                         email: email,
+
+                        // Novos dados financeiros
+                        occupation: profissao,
+                        monthly_income: Number(salarioMensal),
+                        financial_goal: objetivoFinanceiro,
                     },
                     {
                         onConflict: "id",
@@ -75,13 +98,12 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
             }
 
             alert("Conta criada com sucesso!");
-
         } catch (error) {
             console.error("Erro ao criar conta:", error);
 
             alert(
                 "Erro ao criar conta: " +
-                (error.message || "Erro desconhecido.")
+                    (error.message || "Erro desconhecido.")
             );
         } finally {
             setCarregando(false);
@@ -117,6 +139,8 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
                     className="cadastro-form"
                 >
 
+                    {/* NOME */}
+
                     <div className="form-group">
                         <label htmlFor="nome">
                             Nome
@@ -133,6 +157,108 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
                             autoComplete="name"
                         />
                     </div>
+
+
+                    {/* PROFISSÃO */}
+
+                    <div className="form-group">
+                        <label htmlFor="profissao">
+                            Com o que você trabalha?
+                        </label>
+
+                        <input
+                            id="profissao"
+                            type="text"
+                            placeholder="Ex: Vendedor, motorista, programador..."
+                            value={profissao}
+                            onChange={(event) =>
+                                setProfissao(event.target.value)
+                            }
+                        />
+                    </div>
+
+
+                    {/* SALÁRIO */}
+
+                    <div className="form-group">
+                        <label htmlFor="salario">
+                            Qual é sua renda mensal?
+                        </label>
+
+                        <input
+                            id="salario"
+                            type="number"
+                            placeholder="Ex: 2500"
+                            value={salarioMensal}
+                            onChange={(event) =>
+                                setSalarioMensal(event.target.value)
+                            }
+                            min="0"
+                            step="0.01"
+                        />
+                    </div>
+
+
+                    {/* OBJETIVO */}
+
+                    <div className="form-group">
+                        <label htmlFor="objetivo">
+                            Qual é seu principal objetivo?
+                        </label>
+
+                        <select
+                            id="objetivo"
+                            value={objetivoFinanceiro}
+                            onChange={(event) =>
+                                setObjetivoFinanceiro(
+                                    event.target.value
+                                )
+                            }
+                        >
+                            <option value="">
+                                Selecione seu objetivo
+                            </option>
+
+                            <option value="organizar_financas">
+                                Organizar minha vida financeira
+                            </option>
+
+                            <option value="sair_dividas">
+                                Sair das dívidas
+                            </option>
+
+                            <option value="reserva_emergencia">
+                                Criar uma reserva de emergência
+                            </option>
+
+                            <option value="comprar_casa">
+                                Comprar uma casa
+                            </option>
+
+                            <option value="comprar_carro">
+                                Comprar um carro
+                            </option>
+
+                            <option value="viajar">
+                                Juntar dinheiro para viajar
+                            </option>
+
+                            <option value="investir">
+                                Começar a investir
+                            </option>
+
+                            <option value="aumentar_renda">
+                                Aumentar minha renda
+                            </option>
+
+                            <option value="outro">
+                                Outro objetivo
+                            </option>
+                        </select>
+                    </div>
+
+
+                    {/* EMAIL */}
 
                     <div className="form-group">
                         <label htmlFor="email">
@@ -151,6 +277,9 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
                         />
                     </div>
 
+
+                    {/* SENHA */}
+
                     <div className="form-group">
                         <label htmlFor="senha">
                             Senha
@@ -168,6 +297,9 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
                         />
                     </div>
 
+
+                    {/* CONFIRMAR SENHA */}
+
                     <div className="form-group">
                         <label htmlFor="confirmarSenha">
                             Confirmar senha
@@ -179,11 +311,14 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
                             placeholder="Digite a senha novamente"
                             value={confirmarSenha}
                             onChange={(event) =>
-                                setConfirmarSenha(event.target.value)
+                                setConfirmarSenha(
+                                    event.target.value
+                                )
                             }
                             autoComplete="new-password"
                         />
                     </div>
+
 
                     <button
                         type="submit"
@@ -196,6 +331,7 @@ function Cadastro({ onCreateAccount, onBackToLogin }) {
                     </button>
 
                 </form>
+
 
                 <div className="cadastro-footer">
 

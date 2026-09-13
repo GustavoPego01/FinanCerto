@@ -52,6 +52,9 @@ function Login({ onLogin, onCreateAccount }) {
         id: data.user.id,
         email: data.user.email,
         nome: perfil.nome,
+        occupation: perfil.occupation,
+        monthly_income: perfil.monthly_income,
+        financial_goal: perfil.financial_goal,
       };
 
       // 4. Envia o usuário para o App

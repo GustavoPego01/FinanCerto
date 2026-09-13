@@ -1,0 +1,2952 @@
+import { useEffect, useMemo, useState } from "react";
+import "./App.css";
+import Perfil from "../Perfil/index.jsx";
+import { supabase } from "../../supabase/client";
+
+/* =========================================================
+   CONFIGURAÇÕES
+========================================================= */
+
+const categories = [
+  "Alimentação",
+  "Moradia",
+  "Transporte",
+  "Compras",
+  "Bebidas",
+  "Saúde",
+  "Lazer",
+  "Contas",
+  "Vendas",
+  "Salário",
+  "Outros",
+];
+
+/* =========================================================
+   FUNÇÕES DE DATA
+========================================================= */
+
+function getCurrentMonthKey() {
+  const now = new Date();
+
+  return `${now.getFullYear()}-${String(
+    now.getMonth() + 1
+  ).padStart(2, "0")}`;
+}
+
+/*
+  Converte diferentes formatos de data
+  para um objeto Date válido.
+*/
+
+function parseTransactionDate(dateValue) {
+  if (!dateValue) return null;
+
+  /*
+    Caso já seja um objeto Date.
+  */
+
+  if (dateValue instanceof Date) {
+    return dateValue;
+  }
+
+  const value = String(dateValue).trim();
+
+  /*
+    Formato YYYY-MM-DD
+    Exemplo:
+    2026-08-29
+  */
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split("-");
+
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day)
+    );
+  }
+
+  /*
+    Formato DD/MM/YYYY
+    Exemplo:
+    29/08/2026
+  */
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+    const [day, month, year] = value.split("/");
+
+    return new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day)
+    );
+  }
+
+  /*
+    Tenta interpretar outros formatos.
+  */
+
+  const parsedDate = new Date(value);
+
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return parsedDate;
+  }
+
+  return null;
+}
+
+/*
+  Retorna a data sempre no formato visual:
+  DD/MM/YYYY
+*/
+
+function formatTransactionDate(dateValue) {
+  if (!dateValue) return "";
+
+  const value = String(dateValue).trim();
+
+  /*
+    Se já estiver no formato correto.
+  */
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+    return value;
+  }
+
+  const date = parseTransactionDate(value);
+
+  if (!date) {
+    return value;
+  }
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+function getMonthKeyFromDate(dateValue) {
+  const date = parseTransactionDate(dateValue);
+
+  if (!date) {
+    return getCurrentMonthKey();
+  }
+
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-");
+
+  const date = new Date(
+    Number(year),
+    Number(month) - 1,
+    1
+  );
+
+  return date.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatMonthTitle(monthKey) {
+  const label = formatMonthLabel(monthKey);
+
+  return (
+    label.charAt(0).toUpperCase() +
+    label.slice(1)
+  );
+}
+
+function changeMonth(monthKey, amount) {
+  const [year, month] = monthKey.split("-");
+
+  const date = new Date(
+    Number(year),
+    Number(month) - 1 + amount,
+    1
+  );
+
+  return `${date.getFullYear()}-${String(
+    date.getMonth() + 1
+  ).padStart(2, "0")}`;
+}
+
+function isFutureMonth(monthKey) {
+  return monthKey > getCurrentMonthKey();
+}
+
+/*
+  Retorna a data atual de São Paulo
+  no formato DD/MM/YYYY.
+*/
+
+function getToday() {
+  const now = new Date();
+
+  const parts = new Intl.DateTimeFormat(
+    "pt-BR",
+    {
+      timeZone: "America/Sao_Paulo",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }
+  ).formatToParts(now);
+
+  const day = parts.find(
+    (part) => part.type === "day"
+  )?.value;
+
+  const month = parts.find(
+    (part) => part.type === "month"
+  )?.value;
+
+  const year = parts.find(
+    (part) => part.type === "year"
+  )?.value;
+
+  return `${day}/${month}/${year}`;
+}
+
+/*
+  Converte uma transação para garantir
+  compatibilidade com os formatos existentes.
+*/
+
+function normalizeTransaction(transaction) {
+  return {
+    ...transaction,
+    amount: Number(transaction.amount) || 0,
+    date: formatTransactionDate(
+      transaction.date
+    ),
+  };
+}
+
+/*
+  Ordena transações da mais recente
+  para a mais antiga.
+*/
+
+function sortTransactionsByDate(transactions) {
+  return [...transactions].sort((a, b) => {
+    const dateA = parseTransactionDate(a.date);
+    const dateB = parseTransactionDate(b.date);
+
+    const timeA = dateA
+      ? dateA.getTime()
+      : 0;
+
+    const timeB = dateB
+      ? dateB.getTime()
+      : 0;
+
+    return timeB - timeA;
+  });
+}
+
+/* =========================================================
+   MOEDA
+========================================================= */
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(Number(value) || 0);
+}
+
+function formatInputValue(value) {
+  if (!value) return "";
+
+  const numbers = value.replace(/\D/g, "");
+
+  if (!numbers) return "";
+
+  return (Number(numbers) / 100)
+    .toFixed(2)
+    .replace(".", ",");
+}
+
+function parseCurrency(value) {
+  if (!value) return 0;
+
+  const normalized = value
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .replace(/[^\d.-]/g, "");
+
+  return Number(normalized) || 0;
+}
+
+/* =========================================================
+   APP
+========================================================= */
+
+function App() {
+  /* =======================================================
+     ESTADOS PRINCIPAIS
+  ======================================================= */
+
+  const [page, setPage] =
+    useState("inicio");
+
+  const [user, setUser] =
+    useState(null);
+
+  const [
+    selectedMonth,
+    setSelectedMonth,
+  ] = useState(
+    getCurrentMonthKey()
+  );
+
+  const [
+    transactions,
+    setTransactions,
+  ] = useState([]);
+
+  const [
+    modalOpen,
+    setModalOpen,
+  ] = useState(false);
+
+  const [
+    transactionType,
+    setTransactionType,
+  ] = useState("expense");
+
+  const [amount, setAmount] =
+    useState("");
+
+  const [title, setTitle] =
+    useState("");
+
+  const [
+    category,
+    setCategory,
+  ] = useState("Outros");
+
+  const [message, setMessage] =
+    useState("");
+
+  const [
+    menuOpen,
+    setMenuOpen,
+  ] = useState(false);
+
+  const [
+    clientName,
+    setClientName,
+  ] = useState("Cliente");
+
+  /* =======================================================
+     CARREGAR USUÁRIO E TRANSAÇÕES
+  ======================================================= */
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadUserAndTransactions() {
+      try {
+        const {
+          data: authData,
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError) {
+          console.error(
+            "ERRO AO PEGAR USUÁRIO:",
+            authError
+          );
+
+          return;
+        }
+
+        const currentUser =
+          authData?.user ?? null;
+
+        if (!isMounted) return;
+
+        setUser(currentUser);
+
+        /*
+          Nenhum usuário logado.
+        */
+
+        if (!currentUser) {
+          setTransactions([]);
+          setClientName("Cliente");
+
+          return;
+        }
+
+        /*
+          Define o nome do usuário.
+        */
+
+        const nome =
+          currentUser.user_metadata?.nome ||
+          currentUser.user_metadata?.name ||
+          currentUser.user_metadata?.full_name ||
+          currentUser.email?.split("@")[0] ||
+          "Cliente";
+
+        setClientName(nome);
+
+        /*
+          Busca as transações.
+        */
+
+        const { data, error } =
+          await supabase
+            .from("transactions")
+            .select("*")
+            .eq(
+              "user_id",
+              currentUser.id
+            );
+
+        if (error) {
+          console.error(
+            "ERRO TRANSAÇÕES:",
+            error
+          );
+
+          return;
+        }
+
+        if (!isMounted) return;
+
+        const normalizedTransactions =
+          (data || []).map(
+            normalizeTransaction
+          );
+
+        setTransactions(
+          sortTransactionsByDate(
+            normalizedTransactions
+          )
+        );
+      } catch (error) {
+        console.error(
+          "ERRO AO CARREGAR DADOS:",
+          error
+        );
+      }
+    }
+
+    loadUserAndTransactions();
+
+    /*
+      Acompanha login e logout.
+    */
+
+    const {
+      data: authListener,
+    } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        const currentUser =
+          session?.user ?? null;
+
+        if (!isMounted) return;
+
+        setUser(currentUser);
+
+        /*
+          Logout.
+        */
+
+        if (!currentUser) {
+          setTransactions([]);
+          setClientName("Cliente");
+
+          return;
+        }
+
+        /*
+          Nome do usuário.
+        */
+
+        const nome =
+          currentUser.user_metadata?.nome ||
+          currentUser.user_metadata?.name ||
+          currentUser.user_metadata?.full_name ||
+          currentUser.email?.split("@")[0] ||
+          "Cliente";
+
+        setClientName(nome);
+
+        /*
+          Carrega novamente
+          as transações do usuário.
+        */
+
+        try {
+          const { data, error } =
+            await supabase
+              .from("transactions")
+              .select("*")
+              .eq(
+                "user_id",
+                currentUser.id
+              );
+
+          if (error) {
+            console.error(
+              "ERRO AO CARREGAR TRANSAÇÕES:",
+              error
+            );
+
+            return;
+          }
+
+          if (!isMounted) return;
+
+          const normalizedTransactions =
+            (data || []).map(
+              normalizeTransaction
+            );
+
+          setTransactions(
+            sortTransactionsByDate(
+              normalizedTransactions
+            )
+          );
+        } catch (error) {
+          console.error(
+            "ERRO:",
+            error
+          );
+        }
+      }
+    );
+
+    return () => {
+      isMounted = false;
+
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  /* =======================================================
+     ACOMPANHAR O CALENDÁRIO REAL
+  ======================================================= */
+
+  useEffect(() => {
+    function verificarNovoMes() {
+      const realMonth =
+        getCurrentMonthKey();
+
+      setSelectedMonth(
+        (currentMonth) => {
+          /*
+            Mês anterior ao mês real.
+          */
+
+          const previousRealMonth =
+            changeMonth(
+              realMonth,
+              -1
+            );
+
+          /*
+            Se o usuário estava
+            no mês anterior ou atual,
+            acompanha a virada.
+          */
+
+          if (
+            currentMonth ===
+            previousRealMonth ||
+            currentMonth === realMonth
+          ) {
+            return realMonth;
+          }
+
+          return currentMonth;
+        }
+      );
+    }
+
+    verificarNovoMes();
+
+    /*
+      Verifica quando a aba
+      volta a ficar ativa.
+    */
+
+    const handleVisibilityChange = () => {
+      if (
+        document.visibilityState ===
+        "visible"
+      ) {
+        verificarNovoMes();
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibilityChange
+    );
+
+    /*
+      Verifica periodicamente.
+    */
+
+    const interval = setInterval(
+      verificarNovoMes,
+      60 * 1000
+    );
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibilityChange
+      );
+
+      clearInterval(interval);
+    };
+  }, []);
+
+  /* =======================================================
+     TRANSAÇÕES DO MÊS SELECIONADO
+  ======================================================= */
+
+  const monthTransactions = useMemo(() => {
+    return transactions.filter(
+      (transaction) =>
+        getMonthKeyFromDate(
+          transaction.date
+        ) === selectedMonth
+    );
+  }, [
+    transactions,
+    selectedMonth,
+  ]);
+
+  /* =======================================================
+     TOTAIS DO MÊS
+  ======================================================= */
+
+  const totals = useMemo(() => {
+    const income =
+      monthTransactions
+        .filter(
+          (item) =>
+            item.type === "income"
+        )
+        .reduce(
+          (total, item) =>
+            total +
+            (Number(item.amount) || 0),
+          0
+        );
+
+    const expenses =
+      monthTransactions
+        .filter(
+          (item) =>
+            item.type === "expense"
+        )
+        .reduce(
+          (total, item) =>
+            total +
+            (Number(item.amount) || 0),
+          0
+        );
+
+    return {
+      income,
+      expenses,
+      balance:
+        income - expenses,
+    };
+  }, [monthTransactions]);
+
+  /* =======================================================
+   DADOS DO GRÁFICO SEMANAL
+======================================================= */
+
+  const chartData = useMemo(() => {
+    const days = [
+      {
+        label: "Seg",
+        value: 0,
+      },
+      {
+        label: "Ter",
+        value: 0,
+      },
+      {
+        label: "Qua",
+        value: 0,
+      },
+      {
+        label: "Qui",
+        value: 0,
+      },
+      {
+        label: "Sex",
+        value: 0,
+      },
+      {
+        label: "Sáb",
+        value: 0,
+      },
+      {
+        label: "Dom",
+        value: 0,
+      },
+    ];
+
+    monthTransactions.forEach(
+      (transaction) => {
+        const date =
+          parseTransactionDate(
+            transaction.date
+          );
+
+        if (!date) return;
+
+        /*
+          getDay():
+  
+          0 = Domingo
+          1 = Segunda
+          2 = Terça
+          3 = Quarta
+          4 = Quinta
+          5 = Sexta
+          6 = Sábado
+        */
+
+        const weekDay =
+          date.getDay();
+
+        const dayIndex =
+          weekDay === 0
+            ? 6
+            : weekDay - 1;
+
+        const amount =
+          Number(transaction.amount) || 0;
+
+        /*
+          Entrada soma.
+  
+          Gasto diminui.
+        */
+
+        if (
+          transaction.type ===
+          "income"
+        ) {
+          days[dayIndex].value +=
+            amount;
+        }
+
+        if (
+          transaction.type ===
+          "expense"
+        ) {
+          days[dayIndex].value -=
+            amount;
+        }
+      }
+    );
+
+    /*
+      Maior valor absoluto.
+  
+      Serve para calcular
+      a altura proporcional
+      das barras.
+    */
+
+    const maxValue =
+      Math.max(
+        ...days.map(
+          (day) =>
+            Math.abs(day.value)
+        ),
+        1
+      );
+
+    return days.map(
+      (day) => ({
+        ...day,
+
+        percentage:
+          (Math.abs(day.value) /
+            maxValue) *
+          100,
+      })
+    );
+  }, [monthTransactions]);
+
+  /* =======================================================
+     MOTOR DE INTELIGÊNCIA FINANCEIRA
+  ======================================================= */
+
+  const financialAnalysis = useMemo(() => {
+    const income =
+      totals.income;
+
+    const expenses =
+      totals.expenses;
+
+    const balance =
+      totals.balance;
+
+    /* =====================================================
+       PORCENTAGENS
+    ===================================================== */
+
+    const expensePercentage =
+      income > 0
+        ? (expenses / income) * 100
+        : 0;
+
+    const savingsPercentage =
+      income > 0 && balance > 0
+        ? (balance / income) * 100
+        : 0;
+
+    /* =====================================================
+       STATUS FINANCEIRO
+    ===================================================== */
+
+    let status =
+      "Sem dados";
+
+    let statusType =
+      "neutral";
+
+    let analysisMessage =
+      "Adicione entradas e gastos para começar sua análise financeira.";
+
+    if (income > 0) {
+      if (balance < 0) {
+        status = "Atenção";
+
+        statusType = "danger";
+
+        analysisMessage =
+          "Você gastou mais dinheiro do que recebeu neste período.";
+      } else if (
+        expensePercentage >= 90
+      ) {
+        status = "Atenção";
+
+        statusType = "danger";
+
+        analysisMessage =
+          "Seus gastos estão consumindo quase toda a sua renda.";
+      } else if (
+        expensePercentage >= 70
+      ) {
+        status = "Cuidado";
+
+        statusType = "warning";
+
+        analysisMessage =
+          "Seus gastos estão altos em relação às suas entradas.";
+      } else if (
+        expensePercentage >= 50
+      ) {
+        status = "Estável";
+
+        statusType = "normal";
+
+        analysisMessage =
+          "Sua situação está equilibrada, mas ainda existe espaço para melhorar.";
+      } else {
+        status = "Muito bom";
+
+        statusType = "good";
+
+        analysisMessage =
+          "Você está mantendo uma boa diferença entre suas entradas e gastos.";
+      }
+    }
+
+    /* =====================================================
+       GASTOS POR CATEGORIA
+    ===================================================== */
+
+    const expensesByCategory = {};
+
+    monthTransactions
+      .filter(
+        (transaction) =>
+          transaction.type === "expense"
+      )
+      .forEach(
+        (transaction) => {
+          const categoryName =
+            transaction.category ||
+            "Outros";
+
+          expensesByCategory[
+            categoryName
+          ] =
+            (expensesByCategory[
+              categoryName
+            ] || 0) +
+            (Number(
+              transaction.amount
+            ) || 0);
+        }
+      );
+
+    /* =====================================================
+       MAIOR CATEGORIA DE GASTOS
+    ===================================================== */
+
+    const topExpenseCategory =
+      Object.entries(
+        expensesByCategory
+      ).sort(
+        (a, b) =>
+          b[1] - a[1]
+      )[0] || null;
+
+    /* =====================================================
+       ANÁLISE DETALHADA DAS CATEGORIAS
+    ===================================================== */
+
+    const categoryAnalysis =
+      Object.entries(
+        expensesByCategory
+      )
+        .map(
+          ([name, value]) => {
+            const percentage =
+              expenses > 0
+                ? (value / expenses) *
+                100
+                : 0;
+
+            return {
+              name,
+              value,
+              percentage,
+            };
+          }
+        )
+        .sort(
+          (a, b) =>
+            b.value - a.value
+        );
+
+    /*
+      Categorias críticas:
+      representam 40% ou mais
+      dos gastos.
+    */
+
+    const criticalCategories =
+      categoryAnalysis.filter(
+        (category) =>
+          category.percentage >= 40
+      );
+
+    /* =====================================================
+       FINANSCORE
+    ===================================================== */
+
+    let finanScore = 100;
+
+    /*
+      Possui gastos,
+      mas não possui entradas.
+    */
+
+    if (
+      income <= 0 &&
+      expenses > 0
+    ) {
+      finanScore -= 40;
+    }
+
+    /*
+      Saldo negativo.
+    */
+
+    if (balance < 0) {
+      finanScore -= 30;
+    }
+
+    /*
+      Desconto baseado
+      na utilização da renda.
+    */
+
+    if (income > 0) {
+      if (
+        expensePercentage >= 100
+      ) {
+        finanScore -= 40;
+      } else if (
+        expensePercentage >= 90
+      ) {
+        finanScore -= 30;
+      } else if (
+        expensePercentage >= 80
+      ) {
+        finanScore -= 20;
+      } else if (
+        expensePercentage >= 70
+      ) {
+        finanScore -= 10;
+      } else if (
+        expensePercentage >= 50
+      ) {
+        finanScore -= 5;
+      }
+    }
+
+    /*
+      Garante que fique
+      entre 0 e 100.
+    */
+
+    finanScore = Math.max(
+      0,
+      Math.min(
+        100,
+        finanScore
+      )
+    );
+
+    /* =====================================================
+       NÍVEL DO FINANSCORE
+    ===================================================== */
+
+    let finanScoreLevel =
+      "Excelente";
+
+    if (finanScore < 40) {
+      finanScoreLevel =
+        "Crítico";
+    } else if (
+      finanScore < 60
+    ) {
+      finanScoreLevel =
+        "Atenção";
+    } else if (
+      finanScore < 80
+    ) {
+      finanScoreLevel =
+        "Estável";
+    } else if (
+      finanScore < 90
+    ) {
+      finanScoreLevel =
+        "Bom";
+    }
+
+    /* =====================================================
+       INSIGHTS
+    ===================================================== */
+
+    const insights = [];
+
+    /*
+      Gastos sem entradas.
+    */
+
+    if (
+      income <= 0 &&
+      expenses > 0
+    ) {
+      insights.push(
+        "Você possui gastos registrados, mas ainda não registrou nenhuma entrada neste período."
+      );
+    }
+
+    /*
+      Saldo negativo.
+    */
+
+    if (
+      income > 0 &&
+      balance < 0
+    ) {
+      insights.push(
+        `Você terminou o período com saldo negativo de ${formatCurrency(
+          Math.abs(balance)
+        )}.`
+      );
+    }
+
+    /*
+      Gastos altos.
+    */
+
+    if (
+      income > 0 &&
+      expensePercentage >= 80 &&
+      balance >= 0
+    ) {
+      insights.push(
+        `Você já utilizou ${expensePercentage.toFixed(
+          0
+        )}% das suas entradas. Tente controlar novos gastos.`
+      );
+    }
+
+    /*
+      Boa capacidade de guardar dinheiro.
+    */
+
+    if (
+      income > 0 &&
+      savingsPercentage >= 20
+    ) {
+      insights.push(
+        `Você conseguiu manter ${savingsPercentage.toFixed(
+          0
+        )}% da sua renda disponível neste período.`
+      );
+    }
+
+    /*
+      Maior categoria.
+    */
+
+    if (topExpenseCategory) {
+      insights.push(
+        `Sua maior categoria de gastos é ${topExpenseCategory[0]}, com ${formatCurrency(
+          topExpenseCategory[1]
+        )}.`
+      );
+    }
+
+    /*
+      Alerta para categorias
+      com gasto muito alto.
+    */
+
+    criticalCategories.forEach(
+      (category) => {
+        insights.push(
+          `${category.name} representa ${category.percentage.toFixed(
+            0
+          )}% dos seus gastos neste período.`
+        );
+      }
+    );
+
+    /*
+      Caso esteja tudo bem.
+    */
+
+    if (
+      income > 0 &&
+      balance > 0 &&
+      insights.length === 0
+    ) {
+      insights.push(
+        "Continue acompanhando seus gastos para entender melhor seu comportamento financeiro."
+      );
+    }
+
+    /* =====================================================
+       RETORNO DA ANÁLISE
+    ===================================================== */
+
+    return {
+      income,
+      expenses,
+      balance,
+
+      expensePercentage,
+      savingsPercentage,
+
+      status,
+      statusType,
+
+      message:
+        analysisMessage,
+
+      savingsCapacity:
+        balance > 0
+          ? balance
+          : 0,
+
+      topExpenseCategory,
+
+      expensesByCategory,
+
+      categoryAnalysis,
+
+      criticalCategories,
+
+      insights,
+
+      finanScore,
+
+      finanScoreLevel,
+    };
+  }, [
+    totals,
+    monthTransactions,
+  ]);
+
+  /* =======================================================
+     HISTÓRICO DE MESES
+  ======================================================= */
+
+  const availableMonths =
+    useMemo(() => {
+      const months = new Set();
+
+      transactions.forEach(
+        (transaction) => {
+          months.add(
+            getMonthKeyFromDate(
+              transaction.date
+            )
+          );
+        }
+      );
+
+      /*
+        Mês atual sempre aparece.
+      */
+
+      months.add(
+        getCurrentMonthKey()
+      );
+
+      return Array.from(
+        months
+      ).sort((a, b) =>
+        b.localeCompare(a)
+      );
+    }, [transactions]);
+
+  /* =======================================================
+     NAVEGAÇÃO ENTRE MESES
+  ======================================================= */
+
+  function previousMonth() {
+    setSelectedMonth(
+      (currentMonth) =>
+        changeMonth(
+          currentMonth,
+          -1
+        )
+    );
+  }
+
+  function nextMonth() {
+    setSelectedMonth(
+      (currentMonth) => {
+        const next =
+          changeMonth(
+            currentMonth,
+            1
+          );
+
+        if (
+          isFutureMonth(next)
+        ) {
+          return currentMonth;
+        }
+
+        return next;
+      }
+    );
+  }
+
+  function goToCurrentMonth() {
+    setSelectedMonth(
+      getCurrentMonthKey()
+    );
+  }
+
+  /* =======================================================
+     MODAL
+  ======================================================= */
+
+  function openTransactionModal(
+    type
+  ) {
+    setTransactionType(type);
+
+    setAmount("");
+
+    setTitle("");
+
+    setCategory(
+      type === "income"
+        ? "Vendas"
+        : "Outros"
+    );
+
+    setMessage("");
+
+    setModalOpen(true);
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+
+    setAmount("");
+
+    setTitle("");
+
+    setMessage("");
+  }
+
+  function handleAmountChange(
+    event
+  ) {
+    const value =
+      event.target.value;
+
+    setAmount(
+      formatInputValue(value)
+    );
+  }
+
+  /* =======================================================
+     SALVAR TRANSAÇÃO
+  ======================================================= */
+
+  async function handleSaveTransaction(
+    event
+  ) {
+    event.preventDefault();
+
+    const numericAmount =
+      parseCurrency(amount);
+
+    if (
+      !numericAmount ||
+      numericAmount <= 0
+    ) {
+      setMessage(
+        "Digite um valor válido."
+      );
+
+      return;
+    }
+
+    if (!title.trim()) {
+      setMessage(
+        "Digite uma descrição."
+      );
+
+      return;
+    }
+
+    try {
+      /*
+        Pega usuário atualmente logado.
+      */
+
+      const {
+        data: authData,
+        error: authError,
+      } =
+        await supabase.auth.getUser();
+
+      const currentUser =
+        authData?.user;
+
+      if (authError) {
+        console.error(
+          "ERRO AO PEGAR USUÁRIO:",
+          authError
+        );
+
+        setMessage(
+          "Erro ao identificar usuário."
+        );
+
+        return;
+      }
+
+      if (!currentUser) {
+        setMessage(
+          "Usuário não está logado."
+        );
+
+        return;
+      }
+
+      /*
+        Cria nova transação.
+      */
+
+      console.log("DATA DE HOJE:", getToday());
+      console.log("MÊS SELECIONADO:", selectedMonth);
+
+      const newTransaction = {
+        id: crypto.randomUUID(),
+
+        user_id:
+          currentUser.id,
+
+        type:
+          transactionType,
+
+        title:
+          title.trim(),
+
+        category,
+
+        amount:
+          numericAmount,
+
+        date:
+          getToday(),
+      };
+
+      console.log(
+        "ENVIANDO PARA SUPABASE:",
+        newTransaction
+      );
+
+      /*
+        Salva no Supabase.
+      */
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("transactions")
+        .insert([
+          newTransaction,
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error(
+          "ERRO AO SALVAR NO SUPABASE:",
+          error
+        );
+
+        setMessage(
+          `Erro ao salvar: ${error.message}`
+        );
+
+        return;
+      }
+
+      console.log(
+        "TRANSAÇÃO SALVA:",
+        data
+      );
+
+      /*
+        Normaliza dados recebidos.
+      */
+
+      const normalizedTransaction =
+        normalizeTransaction(data);
+
+      /*
+        Atualiza tela.
+      */
+
+      setTransactions(
+        (current) =>
+          sortTransactionsByDate([
+            normalizedTransaction,
+            ...current,
+          ])
+      );
+
+      /*
+        Vai para o mês atual.
+      */
+
+      setSelectedMonth(
+        getCurrentMonthKey()
+      );
+
+      closeModal();
+
+      setPage("lancamentos");
+    } catch (error) {
+      console.error(
+        "ERRO:",
+        error
+      );
+
+      setMessage(
+        "Ocorreu um erro ao salvar a transação."
+      );
+    }
+  }
+
+  /* =======================================================
+     EXCLUIR TRANSAÇÃO
+  ======================================================= */
+
+  async function deleteTransaction(
+    id
+  ) {
+    const confirmed =
+      window.confirm(
+        "Deseja realmente excluir este lançamento?"
+      );
+
+    if (!confirmed) return;
+
+    try {
+      /*
+        Pega usuário logado.
+      */
+
+      const {
+        data: authData,
+        error: authError,
+      } =
+        await supabase.auth.getUser();
+
+      const currentUser =
+        authData?.user;
+
+      if (
+        authError ||
+        !currentUser
+      ) {
+        console.error(
+          "ERRO AO IDENTIFICAR USUÁRIO:",
+          authError
+        );
+
+        return;
+      }
+
+      /*
+        Exclui no Supabase.
+      */
+
+      const { error } =
+        await supabase
+          .from("transactions")
+          .delete()
+          .eq("id", id)
+          .eq(
+            "user_id",
+            currentUser.id
+          );
+
+      if (error) {
+        console.error(
+          "ERRO AO EXCLUIR TRANSAÇÃO:",
+          error
+        );
+
+        return;
+      }
+
+      /*
+        Remove da tela
+        somente após confirmação.
+      */
+
+      setTransactions(
+        (current) =>
+          current.filter(
+            (transaction) =>
+              transaction.id !== id
+          )
+      );
+
+      console.log(
+        "TRANSAÇÃO EXCLUÍDA COM SUCESSO:",
+        id
+      );
+    } catch (error) {
+      console.error(
+        "ERRO AO EXCLUIR LANÇAMENTO:",
+        error
+      );
+    }
+  }
+
+  /* =======================================================
+     INÍCIO
+  ======================================================= */
+
+  function renderHome() {
+    const recentTransactions =
+      monthTransactions.slice(0, 5);
+
+    return (
+      <div className="page-content">
+        <header className="top-header">
+          <div>
+            <span className="welcome-label">
+              Bom dia,
+            </span>
+
+            <h1>
+              {clientName}
+            </h1>
+          </div>
+
+          <button
+            className="notification-button"
+            onClick={() =>
+              alert(
+                "Você não possui novas notificações."
+              )
+            }
+          >
+            🔔
+          </button>
+        </header>
+
+        {/* =============================================
+            CONTROLE DO PERÍODO
+        ============================================= */}
+
+        <section className="period-selector">
+          <div className="period-info">
+            <span>📅</span>
+
+            <div>
+              <small>
+                Período
+              </small>
+
+              <strong>
+                {formatMonthTitle(
+                  selectedMonth
+                )}
+              </strong>
+            </div>
+          </div>
+
+          <div className="period-controls">
+            <button
+              type="button"
+              onClick={previousMonth}
+              aria-label="Mês anterior"
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              className="period-current"
+              onClick={
+                goToCurrentMonth
+              }
+            >
+              {formatMonthTitle(
+                selectedMonth
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={nextMonth}
+              disabled={isFutureMonth(
+                changeMonth(
+                  selectedMonth,
+                  1
+                )
+              )}
+              aria-label="Próximo mês"
+            >
+              ›
+            </button>
+          </div>
+        </section>
+
+        {/* =============================================
+            SALDO
+        ============================================= */}
+
+        <section className="balance-section">
+          <span>
+            Seu saldo em{" "}
+            {formatMonthTitle(
+              selectedMonth
+            )}
+          </span>
+
+          <div className="balance-row">
+            <h2>
+              {formatCurrency(
+                totals.balance
+              )}
+            </h2>
+
+            <button
+              className="main-add-button"
+              onClick={() =>
+                openTransactionModal(
+                  "expense"
+                )
+              }
+            >
+              +
+            </button>
+          </div>
+        </section>
+
+        {/* =============================================
+            RESUMO
+        ============================================= */}
+
+        <section className="summary-grid">
+          <button
+            className="summary-card income-card"
+            onClick={() =>
+              openTransactionModal(
+                "income"
+              )
+            }
+          >
+            <div className="summary-icon">
+              ↗
+            </div>
+
+            <div>
+              <span>
+                Entradas
+              </span>
+
+              <strong>
+                {formatCurrency(
+                  totals.income
+                )}
+              </strong>
+            </div>
+
+            <small>
+              Adicionar entrada
+            </small>
+          </button>
+
+          <button
+            className="summary-card expense-card"
+            onClick={() =>
+              openTransactionModal(
+                "expense"
+              )
+            }
+          >
+            <div className="summary-icon">
+              ↘
+            </div>
+
+            <div>
+              <span>
+                Gastos
+              </span>
+
+              <strong>
+                {formatCurrency(
+                  totals.expenses
+                )}
+              </strong>
+            </div>
+
+            <small>
+              Adicionar gasto
+            </small>
+          </button>
+        </section>
+
+        {/* =============================================
+            INTELIGÊNCIA FINANCEIRA
+        ============================================= */}
+
+        <section className="financial-intelligence-card">
+          <div className="section-heading">
+            <div>
+              <span className="section-label">
+                FinanCerto Intelligence
+              </span>
+
+              <h2>
+                Sua análise financeira
+              </h2>
+            </div>
+
+            <span
+              className={`financial-status ${financialAnalysis.statusType}`}
+            >
+              {
+                financialAnalysis.status
+              }
+            </span>
+          </div>
+
+          <p className="financial-intelligence-message">
+            {
+              financialAnalysis.message
+            }
+          </p>
+
+          <div className="financial-analysis-grid">
+            <div className="financial-analysis-item">
+              <span>
+                Renda utilizada
+              </span>
+
+              <strong>
+                {financialAnalysis.expensePercentage.toFixed(
+                  0
+                )}
+                %
+              </strong>
+
+              <small>
+                das suas entradas
+              </small>
+            </div>
+
+            <div className="financial-analysis-item">
+              <span>
+                Disponível
+              </span>
+
+              <strong>
+                {formatCurrency(
+                  financialAnalysis.savingsCapacity
+                )}
+              </strong>
+
+              <small>
+                capacidade atual
+              </small>
+            </div>
+
+            <div className="financial-analysis-item">
+              <span>
+                Renda livre
+              </span>
+
+              <strong>
+                {financialAnalysis.savingsPercentage.toFixed(
+                  0
+                )}
+                %
+              </strong>
+
+              <small>
+                da renda mensal
+              </small>
+            </div>
+          </div>
+
+          {financialAnalysis.insights
+            .length > 0 && (
+              <div className="financial-insights">
+                <h3>
+                  💡 Insights
+                </h3>
+
+                {financialAnalysis.insights.map(
+                  (
+                    insight,
+                    index
+                  ) => (
+                    <div
+                      className="financial-insight"
+                      key={index}
+                    >
+                      <span>
+                        ✦
+                      </span>
+
+                      <p>
+                        {insight}
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+        </section>
+
+        {/* =============================================
+            GRÁFICO
+        ============================================= */}
+
+        <section className="chart-card">
+          <div className="section-heading">
+            <div>
+              <span className="section-label">
+                Visão financeira
+              </span>
+
+              <h2>
+                Movimentações
+              </h2>
+            </div>
+
+            <button
+              onClick={() =>
+                setPage(
+                  "relatorios"
+                )
+              }
+            >
+              Ver relatório →
+            </button>
+          </div>
+
+          <div className="fake-chart">
+
+            <div className="chart-line">
+
+              {chartData.map(
+                (day) => {
+
+                  const isExpense =
+                    day.value < 0;
+
+                  return (
+                    <span
+                      key={day.label}
+                      className={
+                        isExpense
+                          ? "chart-bar expense"
+                          : "chart-bar income"
+                      }
+                      style={{
+                        height:
+                          `${Math.max(
+                            day.percentage,
+                            day.value !== 0
+                              ? 8
+                              : 2
+                          )}%`,
+                      }}
+                      title={
+                        `${day.label}: ${formatCurrency(
+                          day.value
+                        )}`
+                      }
+                    />
+                  );
+                }
+              )}
+
+            </div>
+
+            <div className="chart-days">
+
+              {chartData.map(
+                (day) => (
+                  <span
+                    key={day.label}
+                  >
+                    {day.label}
+                  </span>
+                )
+              )}
+
+            </div>
+
+          </div>
+        </section>
+
+        {/* =============================================
+            ÚLTIMOS LANÇAMENTOS
+        ============================================= */}
+
+        <section className="transactions-card">
+          <div className="section-heading">
+            <div>
+              <span className="section-label">
+                Movimentações
+              </span>
+
+              <h2>
+                Últimos lançamentos
+              </h2>
+            </div>
+
+            <button
+              onClick={() =>
+                setPage(
+                  "lancamentos"
+                )
+              }
+            >
+              Ver todos →
+            </button>
+          </div>
+
+          {recentTransactions.length ===
+            0 ? (
+            <div className="empty-state">
+              <div>📋</div>
+
+              <p>
+                Nenhum lançamento em{" "}
+                {formatMonthTitle(
+                  selectedMonth
+                )}
+                .
+              </p>
+
+              <small>
+                Adicione sua primeira entrada
+                ou gasto.
+              </small>
+            </div>
+          ) : (
+            <div className="transaction-list">
+              {recentTransactions.map(
+                (
+                  transaction
+                ) => (
+                  <TransactionItem
+                    key={
+                      transaction.id
+                    }
+                    transaction={
+                      transaction
+                    }
+                  />
+                )
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* =============================================
+            BOTÃO FLUTUANTE
+        ============================================= */}
+
+        <button
+          className="floating-add"
+          onClick={() =>
+            openTransactionModal(
+              "expense"
+            )
+          }
+        >
+          +
+        </button>
+      </div>
+    );
+  }
+
+  /* =======================================================
+     LANÇAMENTOS
+  ======================================================= */
+
+  function renderTransactions() {
+    return (
+      <div className="page-content">
+        <PageHeader
+          label="Financeiro"
+          title="Lançamentos"
+          onBack={() =>
+            setPage("inicio")
+          }
+        />
+
+        {/* CONTROLE DO MÊS */}
+
+        <section className="period-selector page-period">
+          <div className="period-info">
+            <span>📅</span>
+
+            <div>
+              <small>
+                Histórico
+              </small>
+
+              <strong>
+                {formatMonthTitle(
+                  selectedMonth
+                )}
+              </strong>
+            </div>
+          </div>
+
+          <div className="period-controls">
+            <button
+              type="button"
+              onClick={previousMonth}
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              className="period-current"
+              onClick={
+                goToCurrentMonth
+              }
+            >
+              {formatMonthTitle(
+                selectedMonth
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={nextMonth}
+              disabled={isFutureMonth(
+                changeMonth(
+                  selectedMonth,
+                  1
+                )
+              )}
+            >
+              ›
+            </button>
+          </div>
+        </section>
+
+        {/* HISTÓRICO */}
+
+        {availableMonths.length > 1 && (
+          <section className="month-history-card">
+            <div className="section-heading">
+              <div>
+                <span className="section-label">
+                  Histórico
+                </span>
+
+                <h2>
+                  Meses anteriores
+                </h2>
+              </div>
+            </div>
+
+            <div className="month-history-list">
+              {availableMonths.map(
+                (month) => (
+                  <button
+                    key={month}
+                    className={
+                      month ===
+                        selectedMonth
+                        ? "month-history-item active"
+                        : "month-history-item"
+                    }
+                    onClick={() =>
+                      setSelectedMonth(
+                        month
+                      )
+                    }
+                  >
+                    <span>
+                      {formatMonthTitle(
+                        month
+                      )}
+                    </span>
+
+                    <strong>
+                      {
+                        transactions.filter(
+                          (
+                            transaction
+                          ) =>
+                            getMonthKeyFromDate(
+                              transaction.date
+                            ) === month
+                        ).length
+                      }{" "}
+                      lançamentos
+                    </strong>
+                  </button>
+                )
+              )}
+            </div>
+          </section>
+        )}
+
+        <div className="page-description">
+          <span>
+            Lançamentos de{" "}
+            {formatMonthTitle(
+              selectedMonth
+            )}
+          </span>
+
+          <div className="transaction-actions">
+            <button
+              className="secondary-button"
+              onClick={() =>
+                openTransactionModal(
+                  "income"
+                )
+              }
+            >
+              + Entrada
+            </button>
+
+            <button
+              className="primary-button"
+              onClick={() =>
+                openTransactionModal(
+                  "expense"
+                )
+              }
+            >
+              + Gasto
+            </button>
+          </div>
+        </div>
+
+        {/* RESUMO */}
+
+        <section className="report-grid">
+          <div className="report-card">
+            <span>
+              Entradas
+            </span>
+
+            <strong className="green">
+              {formatCurrency(
+                totals.income
+              )}
+            </strong>
+          </div>
+
+          <div className="report-card">
+            <span>
+              Gastos
+            </span>
+
+            <strong className="red">
+              {formatCurrency(
+                totals.expenses
+              )}
+            </strong>
+          </div>
+
+          <div className="report-card">
+            <span>
+              Saldo
+            </span>
+
+            <strong>
+              {formatCurrency(
+                totals.balance
+              )}
+            </strong>
+          </div>
+        </section>
+
+        {/* LISTA */}
+
+        <section className="all-transactions-card">
+          {monthTransactions.length ===
+            0 ? (
+            <div className="empty-state large">
+              <div>📋</div>
+
+              <h3>
+                Nenhum lançamento
+              </h3>
+
+              <p>
+                Não existem lançamentos
+                neste mês.
+              </p>
+            </div>
+          ) : (
+            <div className="transaction-list large-list">
+              {monthTransactions.map(
+                (
+                  transaction
+                ) => (
+                  <TransactionItem
+                    key={
+                      transaction.id
+                    }
+                    transaction={
+                      transaction
+                    }
+                    showDelete
+                    onDelete={() =>
+                      deleteTransaction(
+                        transaction.id
+                      )
+                    }
+                  />
+                )
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+  /* =======================================================
+     RELATÓRIOS
+  ======================================================= */
+
+  function renderReports() {
+    const percentage =
+      totals.income > 0
+        ? Math.min(
+          (totals.expenses /
+            totals.income) *
+          100,
+          100
+        )
+        : 0;
+
+    return (
+      <div className="page-content">
+        <PageHeader
+          label="Financeiro"
+          title="Relatórios"
+          onBack={() =>
+            setPage("inicio")
+          }
+        />
+
+        {/* PERÍODO */}
+
+        <section className="period-selector page-period">
+          <div className="period-info">
+            <span>📅</span>
+
+            <div>
+              <small>
+                Relatório de
+              </small>
+
+              <strong>
+                {formatMonthTitle(
+                  selectedMonth
+                )}
+              </strong>
+            </div>
+          </div>
+
+          <div className="period-controls">
+            <button
+              type="button"
+              onClick={previousMonth}
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              className="period-current"
+              onClick={
+                goToCurrentMonth
+              }
+            >
+              {formatMonthTitle(
+                selectedMonth
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={nextMonth}
+              disabled={isFutureMonth(
+                changeMonth(
+                  selectedMonth,
+                  1
+                )
+              )}
+            >
+              ›
+            </button>
+          </div>
+        </section>
+
+        {/* RELATÓRIO PRINCIPAL */}
+
+        <section className="report-main-card">
+          <span>
+            Gastos em relação às
+            entradas
+          </span>
+
+          <div className="report-percentage">
+            {percentage.toFixed(0)}%
+          </div>
+
+          <div className="progress-bar">
+            <div
+              style={{
+                width: `${percentage}%`,
+              }}
+            />
+          </div>
+
+          <small>
+            Você gastou{" "}
+            {formatCurrency(
+              totals.expenses
+            )}{" "}
+            em{" "}
+            {formatMonthTitle(
+              selectedMonth
+            )}
+            .
+          </small>
+        </section>
+
+        {/* CARDS */}
+
+        <section className="report-grid">
+          <div className="report-card">
+            <span>
+              Total recebido
+            </span>
+
+            <strong className="green">
+              {formatCurrency(
+                totals.income
+              )}
+            </strong>
+          </div>
+
+          <div className="report-card">
+            <span>
+              Total gasto
+            </span>
+
+            <strong className="red">
+              {formatCurrency(
+                totals.expenses
+              )}
+            </strong>
+          </div>
+
+          <div className="report-card">
+            <span>
+              Saldo
+            </span>
+
+            <strong>
+              {formatCurrency(
+                totals.balance
+              )}
+            </strong>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  /* =======================================================
+     PERFIL
+  ======================================================= */
+
+  function renderProfile() {
+    return <Perfil />;
+  }
+
+  /* =======================================================
+     RENDERIZAÇÃO DAS PÁGINAS
+  ======================================================= */
+
+  function renderPage() {
+    if (
+      page === "lancamentos"
+    ) {
+      return renderTransactions();
+    }
+
+    if (
+      page === "relatorios"
+    ) {
+      return renderReports();
+    }
+
+    if (
+      page === "perfil"
+    ) {
+      return renderProfile();
+    }
+
+    return renderHome();
+  }
+
+  /* =======================================================
+     INTERFACE PRINCIPAL
+  ======================================================= */
+
+  return (
+    <div className="app">
+      <main className="app-main">
+        {renderPage()}
+      </main>
+
+      {/* ===============================================
+          NAVEGAÇÃO INFERIOR
+      =============================================== */}
+
+      <nav className="bottom-navigation">
+        <button
+          className={
+            page === "inicio"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("inicio")
+          }
+        >
+          <span>⌂</span>
+
+          <small>
+            Início
+          </small>
+        </button>
+
+        <button
+          className={
+            page === "lancamentos"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage(
+              "lancamentos"
+            )
+          }
+        >
+          <span>▦</span>
+
+          <small>
+            Lançamentos
+          </small>
+        </button>
+
+        <button
+          className={
+            page === "relatorios"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage(
+              "relatorios"
+            )
+          }
+        >
+          <span>◒</span>
+
+          <small>
+            Relatórios
+          </small>
+        </button>
+
+        <button
+          className={
+            page === "perfil"
+              ? "active"
+              : ""
+          }
+          onClick={() =>
+            setPage("perfil")
+          }
+        >
+          <span>◯</span>
+
+          <small>
+            Perfil
+          </small>
+        </button>
+      </nav>
+
+      {/* ===============================================
+          MODAL DE LANÇAMENTO
+      =============================================== */}
+
+      {modalOpen && (
+        <div
+          className="modal-overlay"
+          onMouseDown={
+            closeModal
+          }
+        >
+          <div
+            className="transaction-modal"
+            onMouseDown={(
+              event
+            ) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="modal-header">
+              <div>
+                <span className="section-label">
+                  Novo lançamento
+                </span>
+
+                <h2>
+                  {transactionType ===
+                    "income"
+                    ? "Adicionar entrada"
+                    : "Adicionar gasto"}
+                </h2>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={
+                  closeModal
+                }
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* TIPO */}
+
+            <div className="type-selector">
+              <button
+                type="button"
+                className={
+                  transactionType ===
+                    "expense"
+                    ? "selected expense"
+                    : ""
+                }
+                onClick={() => {
+                  setTransactionType(
+                    "expense"
+                  );
+
+                  setCategory(
+                    "Outros"
+                  );
+                }}
+              >
+                Gasto
+              </button>
+
+              <button
+                type="button"
+                className={
+                  transactionType ===
+                    "income"
+                    ? "selected income"
+                    : ""
+                }
+                onClick={() => {
+                  setTransactionType(
+                    "income"
+                  );
+
+                  setCategory(
+                    "Vendas"
+                  );
+                }}
+              >
+                Entrada
+              </button>
+            </div>
+
+            <form
+              onSubmit={
+                handleSaveTransaction
+              }
+            >
+              {/* VALOR */}
+
+              <label>
+                Valor
+
+                <div className="amount-input">
+                  <span>
+                    R$
+                  </span>
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="0,00"
+                    value={amount}
+                    onChange={
+                      handleAmountChange
+                    }
+                    autoFocus
+                  />
+                </div>
+              </label>
+
+              {/* DESCRIÇÃO */}
+
+              <label>
+                Descrição
+
+                <input
+                  type="text"
+                  placeholder={
+                    transactionType ===
+                      "income"
+                      ? "Ex: Salário"
+                      : "Ex: Mercado"
+                  }
+                  value={title}
+                  onChange={(
+                    event
+                  ) =>
+                    setTitle(
+                      event.target.value
+                    )
+                  }
+                />
+              </label>
+
+              {/* CATEGORIA */}
+
+              <label>
+                Categoria
+
+                <select
+                  value={category}
+                  onChange={(
+                    event
+                  ) =>
+                    setCategory(
+                      event.target.value
+                    )
+                  }
+                >
+                  {categories.map(
+                    (item) => (
+                      <option
+                        key={item}
+                        value={item}
+                      >
+                        {item}
+                      </option>
+                    )
+                  )}
+                </select>
+              </label>
+
+              {/* MENSAGEM */}
+
+              {message && (
+                <p className="form-message">
+                  {message}
+                </p>
+              )}
+
+              {/* SALVAR */}
+
+              <button
+                className={`save-button ${transactionType ===
+                  "income"
+                  ? "income"
+                  : "expense"
+                  }`}
+                type="submit"
+              >
+                Salvar{" "}
+                {transactionType ===
+                  "income"
+                  ? "entrada"
+                  : "gasto"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ===============================================
+          MENU MOBILE
+      =============================================== */}
+
+      {menuOpen && (
+        <div
+          className="mobile-menu-overlay"
+          onClick={() =>
+            setMenuOpen(false)
+          }
+        >
+          <div
+            className="mobile-menu"
+            onClick={(
+              event
+            ) =>
+              event.stopPropagation()
+            }
+          >
+            <button
+              onClick={() => {
+                setPage("inicio");
+                setMenuOpen(false);
+              }}
+            >
+              Início
+            </button>
+
+            <button
+              onClick={() => {
+                setPage(
+                  "lancamentos"
+                );
+
+                setMenuOpen(false);
+              }}
+            >
+              Lançamentos
+            </button>
+
+            <button
+              onClick={() => {
+                setPage(
+                  "relatorios"
+                );
+
+                setMenuOpen(false);
+              }}
+            >
+              Relatórios
+            </button>
+
+            <button
+              onClick={() => {
+                setPage("perfil");
+
+                setMenuOpen(false);
+              }}
+            >
+              Perfil
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   COMPONENTE DE CABEÇALHO
+========================================================= */
+
+function PageHeader({
+  label,
+  title,
+  onBack,
+}) {
+  return (
+    <header className="page-header">
+      <button
+        className="back-button"
+        onClick={onBack}
+      >
+        ←
+      </button>
+
+      <div>
+        <span className="section-label">
+          {label}
+        </span>
+
+        <h1>
+          {title}
+        </h1>
+      </div>
+    </header>
+  );
+}
+
+/* =========================================================
+   COMPONENTE DE TRANSAÇÃO
+========================================================= */
+
+function TransactionItem({
+  transaction,
+  showDelete,
+  onDelete,
+}) {
+  const isIncome =
+    transaction.type === "income";
+
+  return (
+    <div className="transaction-item">
+      <div
+        className={`transaction-icon ${isIncome
+          ? "income"
+          : "expense"
+          }`}
+      >
+        {isIncome
+          ? "↗"
+          : "↘"}
+      </div>
+
+      <div className="transaction-info">
+        <strong>
+          {transaction.title}
+        </strong>
+
+        <span>
+          {
+            transaction.category ||
+            "Outros"
+          }{" "}
+          •{" "}
+          {formatTransactionDate(
+            transaction.date
+          )}
+        </span>
+      </div>
+
+      <div className="transaction-value">
+        <strong
+          className={
+            isIncome
+              ? "green"
+              : "red"
+          }
+        >
+          {isIncome
+            ? "+"
+            : "-"}{" "}
+          {formatCurrency(
+            transaction.amount
+          )}
+        </strong>
+
+        {showDelete && (
+          <button
+            className="delete-button"
+            onClick={onDelete}
+            title="Excluir lançamento"
+            type="button"
+          >
+            🗑
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default App;

@@ -190,7 +190,7 @@ button:disabled {
   gap: 14px;
 }
 
-.period-info > span {
+.period-info>span {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -267,7 +267,7 @@ button:disabled {
   box-shadow: 0 10px 35px rgba(32, 45, 75, 0.055);
 }
 
-.balance-section > span {
+.balance-section>span {
   display: block;
   margin-bottom: 8px;
   color: #8c95a7;
@@ -414,7 +414,8 @@ button:disabled {
 .all-transactions-card,
 .month-history-card,
 .report-main-card,
-.report-card {
+.report-card,
+.financial-intelligence-card {
   border: 1px solid #e7ebf2;
   background: #ffffff;
   box-shadow: 0 8px 30px rgba(32, 45, 75, 0.05);
@@ -471,19 +472,43 @@ button:disabled {
   border-bottom: 1px solid #e8ebf1;
 }
 
-.chart-line span {
+.chart-bar {
   display: block;
+
   width: min(48px, 8%);
   min-width: 18px;
-  border-radius: 9px 9px 0 0;
-  background: #3267e9;
-  box-shadow: 0 8px 18px rgba(50, 103, 233, 0.18);
-  transition: 0.25s ease;
+
+  border-radius:
+    9px 9px 0 0;
+
+  transition:
+    height 0.35s ease,
+    transform 0.25s ease,
+    filter 0.25s ease;
 }
 
-.chart-line span:hover {
-  background: #2458d0;
-  transform: scaleY(1.03);
+.chart-bar.income {
+  background: #3267e9;
+
+  box-shadow:
+    0 8px 18px rgba(50,
+      103,
+      233,
+      0.18);
+}
+
+.chart-bar.expense {
+  background: #e14d5a;
+
+  box-shadow: 0 8px 18px rgba(225,77,90,0.18);
+}
+
+.chart-bar:hover {
+  transform:
+    scaleY(1.04);
+
+  filter:
+    brightness(0.95);
 }
 
 .chart-days {
@@ -597,7 +622,7 @@ button:disabled {
   text-align: center;
 }
 
-.empty-state > div {
+.empty-state>div {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -776,7 +801,7 @@ button:disabled {
   border-radius: 21px;
 }
 
-.report-main-card > span {
+.report-main-card>span {
   color: #737e92;
   font-size: 14px;
   font-weight: 600;
@@ -1184,10 +1209,223 @@ button:disabled {
 
 
 /* =========================================================
+   INTELIGÊNCIA FINANCEIRA
+========================================================= */
+
+.financial-intelligence-card {
+  margin-bottom: 24px;
+  padding: 28px;
+  border-radius: 21px;
+}
+
+.financial-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 7px 12px;
+
+  border-radius: 20px;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+
+/* STATUS BOM */
+
+.financial-status.good {
+  background: rgba(34,
+      197,
+      94,
+      0.15);
+
+  color: #16a34a;
+}
+
+
+/* STATUS NORMAL */
+
+.financial-status.normal {
+  background: rgba(59,
+      130,
+      246,
+      0.15);
+
+  color: #2563eb;
+}
+
+
+/* STATUS ALERTA */
+
+.financial-status.warning {
+  background: rgba(245,
+      158,
+      11,
+      0.15);
+
+  color: #d97706;
+}
+
+
+/* STATUS PERIGO */
+
+.financial-status.danger {
+  background: rgba(239,
+      68,
+      68,
+      0.15);
+
+  color: #dc2626;
+}
+
+
+/* STATUS NEUTRO */
+
+.financial-status.neutral {
+  background: rgba(100,
+      116,
+      139,
+      0.15);
+
+  color: #64748b;
+}
+
+
+/* MENSAGEM */
+
+.financial-intelligence-message {
+  margin: 0;
+  margin-top: 5px;
+
+  line-height: 1.6;
+
+  color: #64748b;
+
+  font-size: 14px;
+}
+
+
+/* GRID DE ANÁLISE */
+
+.financial-analysis-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, 1fr);
+
+  gap: 12px;
+
+  margin-top: 20px;
+}
+
+
+/* ITEM DA ANÁLISE */
+
+.financial-analysis-item {
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 5px;
+
+  padding: 14px;
+
+  border-radius: 15px;
+
+  background:
+    rgba(50, 103, 233, 0.04);
+
+  border: 1px solid rgba(50, 103, 233, 0.06);
+}
+
+.financial-analysis-item span {
+  font-size: 12px;
+
+  color: #64748b;
+}
+
+.financial-analysis-item strong {
+  color: #182238;
+
+  font-size: 17px;
+
+  font-weight: 750;
+}
+
+.financial-analysis-item small {
+  font-size: 11px;
+
+  color: #94a3b8;
+}
+
+
+/* INSIGHTS */
+
+.financial-insights {
+  margin-top: 22px;
+
+  padding-top: 18px;
+
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+.financial-insights h3 {
+  margin:
+    0 0 12px;
+
+  color: #29344a;
+
+  font-size: 15px;
+}
+
+
+/* INSIGHT INDIVIDUAL */
+
+.financial-insight {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 10px;
+
+  padding: 12px;
+
+  margin-bottom: 8px;
+
+  border-radius: 12px;
+
+  background:
+    rgba(99, 102, 241, 0.06);
+}
+
+.financial-insight span {
+  flex-shrink: 0;
+
+  font-size: 15px;
+
+  color: #3267e9;
+}
+
+.financial-insight p {
+  margin: 0;
+
+  font-size: 13px;
+
+  line-height: 1.5;
+
+  color: #475569;
+}
+
+
+/* =========================================================
    ANIMAÇÕES
 ========================================================= */
 
 @keyframes fadeIn {
+
   from {
     opacity: 0;
   }
@@ -1195,18 +1433,25 @@ button:disabled {
   to {
     opacity: 1;
   }
+
 }
 
 @keyframes modalUp {
+
   from {
     opacity: 0;
-    transform: translateY(15px) scale(0.98);
+
+    transform:
+      translateY(15px) scale(0.98);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+
+    transform:
+      translateY(0) scale(1);
   }
+
 }
 
 
@@ -1215,13 +1460,15 @@ button:disabled {
 ========================================================= */
 
 @media (max-width: 850px) {
+
   .page-content {
     width: min(100% - 32px, 720px);
     padding-top: 30px;
   }
 
   .month-history-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
   }
 
   .report-grid {
@@ -1231,6 +1478,7 @@ button:disabled {
   .report-card {
     min-height: 100px;
   }
+
 }
 
 
@@ -1239,6 +1487,7 @@ button:disabled {
 ========================================================= */
 
 @media (max-width: 600px) {
+
   .app-main {
     padding-bottom: 95px;
   }
@@ -1247,6 +1496,9 @@ button:disabled {
     width: calc(100% - 24px);
     padding: 22px 0 35px;
   }
+
+
+  /* CABEÇALHO */
 
   .top-header {
     margin-bottom: 20px;
@@ -1266,6 +1518,9 @@ button:disabled {
     border-radius: 12px;
   }
 
+
+  /* PAGE HEADER */
+
   .page-header {
     gap: 12px;
     margin-bottom: 20px;
@@ -1279,6 +1534,7 @@ button:disabled {
   .page-header h1 {
     font-size: 27px;
   }
+
 
   /* PERÍODO */
 
@@ -1302,6 +1558,7 @@ button:disabled {
     min-width: 0;
   }
 
+
   /* SALDO */
 
   .balance-section {
@@ -1318,6 +1575,7 @@ button:disabled {
     height: 47px;
     border-radius: 14px;
   }
+
 
   /* RESUMO */
 
@@ -1336,10 +1594,12 @@ button:disabled {
     bottom: 17px;
   }
 
+
   /* CARDS */
 
   .chart-card,
-  .transactions-card {
+  .transactions-card,
+  .financial-intelligence-card {
     padding: 20px;
     border-radius: 18px;
   }
@@ -1351,6 +1611,7 @@ button:disabled {
   .section-heading h2 {
     font-size: 18px;
   }
+
 
   /* GRÁFICO */
 
@@ -1372,6 +1633,7 @@ button:disabled {
     padding: 10px 5px 0;
     font-size: 9px;
   }
+
 
   /* TRANSAÇÕES */
 
@@ -1403,6 +1665,7 @@ button:disabled {
     height: 31px;
   }
 
+
   /* HISTÓRICO */
 
   .month-history-card {
@@ -1413,6 +1676,7 @@ button:disabled {
   .month-history-list {
     grid-template-columns: 1fr;
   }
+
 
   /* AÇÕES */
 
@@ -1429,6 +1693,7 @@ button:disabled {
   .secondary-button {
     flex: 1;
   }
+
 
   /* RELATÓRIOS */
 
@@ -1451,6 +1716,22 @@ button:disabled {
     padding: 20px;
   }
 
+
+  /* INTELIGÊNCIA FINANCEIRA */
+
+  .financial-analysis-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .financial-status {
+    font-size: 11px;
+  }
+
+  .financial-intelligence-message {
+    font-size: 13px;
+  }
+
+
   /* MODAL */
 
   .modal-overlay {
@@ -1465,15 +1746,19 @@ button:disabled {
     border-radius: 22px 22px 0 0;
   }
 
+
   /* BOTÃO FLUTUANTE */
 
   .floating-add {
     right: 18px;
     bottom: 91px;
+
     width: 53px;
     height: 53px;
+
     border-radius: 16px;
   }
+
 
   /* NAVEGAÇÃO */
 
@@ -1489,6 +1774,7 @@ button:disabled {
   .bottom-navigation button small {
     font-size: 9px;
   }
+
 }
 
 
@@ -1497,6 +1783,7 @@ button:disabled {
 ========================================================= */
 
 @media (max-width: 380px) {
+
   .page-content {
     width: calc(100% - 18px);
   }
@@ -1520,4 +1807,5 @@ button:disabled {
   .transaction-value {
     gap: 6px;
   }
+
 }
