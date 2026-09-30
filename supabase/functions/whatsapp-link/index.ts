@@ -1,4 +1,4 @@
-﻿import { createClient } from 'npm:@supabase/supabase-js@2.112.4'
+import { createClient } from 'npm:@supabase/supabase-js@2.112.4'
 import { configured, env, json, cors } from '../_shared/runtime.ts'
 import { digest } from '../_shared/meta.js'
 Deno.serve(async (request) => {
@@ -18,6 +18,11 @@ Deno.serve(async (request) => {
   } = await client.auth.getUser(authorization.replace(/^Bearer\s+/, ''))
   if (error || !user) return json({ error: 'Authentication required' }, 401)
   try {
+    const businessPhone = (
+      env('WHATSAPP_BUSINESS_PHONE') || '5562982767026'
+    ).replace(/^\+/, '')
+    if (!/^[1-9]\d{7,14}$/.test(businessPhone))
+      throw new Error('Invalid business phone')
     const { action } = await request.json()
     if (action === 'status') {
       const { data, error } = await client
@@ -28,8 +33,16 @@ Deno.serve(async (request) => {
       if (error) throw error
       return json({
         configured: configured(),
-        businessPhone: '+5562982767026',
-        connection: data,
+        businessPhone: '+' + businessPhone,
+        connection: data
+          ? {
+              ...data,
+              phone_e164: undefined,
+              phone_masked: data.phone_e164
+                ? '(**) *****-' + data.phone_e164.slice(-4)
+                : null,
+            }
+          : null,
       })
     }
     if (action === 'disconnect') {
@@ -38,6 +51,8 @@ Deno.serve(async (request) => {
       return json({ disconnected: true })
     }
     if (action === 'request_code') {
+      if (!configured())
+        return json({ error: 'Conexão empresarial em configuração.' }, 503)
       const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
       const code = Array.from(
         crypto.getRandomValues(new Uint8Array(12)),
@@ -57,8 +72,8 @@ Deno.serve(async (request) => {
       return json({
         code,
         expiresAt: data,
-        businessPhone: '+5562982767026',
-        url: `https://wa.me/5562982767026?text=${encodeURIComponent('VINCULAR ' + code)}`,
+        businessPhone: '+' + businessPhone,
+        url: `https://wa.me/${businessPhone}?text=${encodeURIComponent('VINCULAR ' + code)}`,
         configured: configured(),
       })
     }

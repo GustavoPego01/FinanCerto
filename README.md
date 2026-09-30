@@ -4,6 +4,8 @@ Aplicativo React + Vite + Supabase, reconstruído em módulos. O Supabase é a f
 
 ## Executar
 
+Hospedagem preparada na Netlify: [configuração e estado da publicação](docs/NETLIFY.md).
+
 ```powershell
 npm.cmd install
 npm.cmd run dev
@@ -47,4 +49,4 @@ O PWA armazena apenas o shell e assets. Chamadas Supabase não são cacheadas; d
 
 ## WhatsApp
 
-Vínculo seguro, webhook Meta, processamento/reenvio durável e Realtime foram implementados. As Edge Functions estão publicadas; falta configurar as credenciais oficiais da Meta. Veja [ativação e testes](supabase/functions/whatsapp-webhook/README.md). App e WhatsApp usam o mesmo serviço de transações e os mesmos dados. Nenhum segredo entra no React.
+O transporte WAHA foi integrado ? fila, ao v?nculo seguro e aos servi?os financeiros existentes; Meta permanece configur?vel. Veja [instala??o e opera??o WAHA](docs/WHATSAPP-WAHA.md) e [valida??es e pend?ncias de ativa??o](docs/WHATSAPP-VALIDACAO.md). A implanta??o remota desta atualiza??o depende de acesso administrativo ao Supabase e de uma inst?ncia WAHA conectada. Nenhum segredo entra no React.

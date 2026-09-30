@@ -1,6 +1,13 @@
 import { test, expect, chromium } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
+const origin = process.env.FINANCERTO_PWA_URL || 'http://127.0.0.1:4173'
+if (
+  !['http://127.0.0.1:4173', 'https://financerto-nexora.netlify.app'].includes(
+    origin,
+  )
+)
+  throw new Error('PWA tests are restricted to FinanCerto origins')
 test('real PWA: production login, persistent browser reopening, service worker and private-cache isolation', async () => {
   const accounts = JSON.parse(
     fs.readFileSync('.cache/financerto-live-accounts.json', 'utf8'),
@@ -15,7 +22,14 @@ test('real PWA: production login, persistent browser reopening, service worker a
   let context = await launch()
   try {
     let page = await context.newPage()
-    await page.goto('http://127.0.0.1:4173')
+    await page.goto(origin)
+    // Wait for AuthProvider to resolve the persisted session before branching.
+    await expect(
+      page
+        .getByLabel('E-mail', { exact: true })
+        .or(page.getByRole('heading', { name: /Olá, Validação/ }))
+        .first(),
+    ).toBeVisible({ timeout: 30000 })
     if (await page.getByLabel('E-mail', { exact: true }).isVisible()) {
       await page.getByLabel('E-mail', { exact: true }).fill(accounts.a.email)
       await page.getByLabel('Senha', { exact: true }).fill(accounts.a.password)
@@ -48,7 +62,7 @@ test('real PWA: production login, persistent browser reopening, service worker a
     await context.close()
     context = await launch()
     page = await context.newPage()
-    await page.goto('http://127.0.0.1:4173')
+    await page.goto(origin)
     await expect(
       page.getByRole('heading', { name: /Olá, Validação/ }),
     ).toBeVisible({ timeout: 30000 })

@@ -16,6 +16,16 @@ const session = {
   user,
 }
 async function mockBackend(page, { onboarded = true } = {}) {
+  await page.route('**/functions/v1/whatsapp-link', (route) =>
+    route.fulfill({
+      status: 200,
+      json: {
+        configured: false,
+        businessPhone: '+5562982767026',
+        connection: null,
+      },
+    }),
+  )
   await page.routeWebSocket(/\/realtime\/v1\/websocket/, (socket) => {
     socket.onMessage(() => {})
   })

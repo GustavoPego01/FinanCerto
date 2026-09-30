@@ -1,4 +1,4 @@
-﻿export const normalize = (text) =>
+export const normalize = (text) =>
   String(text)
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -12,7 +12,7 @@ const rules = [
   [/gasolina|etanol|combustivel|uber|onibus|transporte/, 'Transporte'],
   [/salario|pagamento/, 'Salário'],
   [/aluguel|condominio|moradia/, 'Moradia'],
-  [/farmacia|medico|consulta|saude/, 'Saúde'],
+  [/farmacia|medico|consulta|saude|remedio/, 'Saúde'],
   [/luz|energia|internet|telefone|agua|contas/, 'Contas'],
   [/venda|cliente/, 'Vendas'],
   [/lazer|cinema|passeio/, 'Lazer'],
@@ -56,12 +56,14 @@ export function parseMessage(message, context = null) {
   if (/meta/.test(text))
     return {
       intent: 'goal_status',
-      query: text
-        .replace(/^.*metas?\s*(da|do|de)?\s*/, '')
-        .replace(/[?!]/g, '')
-        .trim(),
+      query: /^(minhas )?metas[?!]?$|^como estao minhas metas[?!]?$/.test(text)
+        ? ''
+        : text
+            .replace(/^.*metas?\s*(da|do|de)?\s*/, '')
+            .replace(/[?!]/g, '')
+            .trim(),
     }
-  if (/quanto.*(recebi|entrou|entrada)|entradas.*mes/.test(text))
+  if (/quanto.*(recebi|entrou|entrada)|(?:entradas|receitas).*mes/.test(text))
     return { intent: 'monthly_income' }
   if (/quanto.*gast|gastos.*mes/.test(text)) {
     const category = categoryFor(text)
@@ -69,8 +71,10 @@ export function parseMessage(message, context = null) {
       ? { intent: 'monthly_expenses' }
       : { intent: 'category_expenses', category }
   }
-  const income = /^(recebi|ganhei|entrou)\b/.test(text)
-  const expense = /^(gastei|paguei|comprei|adiciona|adicione)\b/.test(text)
+  const income = /^(recebi|ganhei|entrou|caiu)\b/.test(text)
+  const shorthand = /^(?:r\$\s*)?\d[\d.,]*\s+\S/.test(text)
+  const expense =
+    /^(gastei|paguei|comprei|adiciona|adicione)\b/.test(text) || shorthand
   const inherited =
     !income && !expense && context?.intent?.startsWith('create_')
   if (!income && !expense && !inherited) return { intent: 'unknown' }
@@ -99,7 +103,7 @@ export function parseMessage(message, context = null) {
   }
   let title = message
     .replace(
-      /^(gastei|paguei|comprei|adiciona|adicione|recebi|ganhei|entrou)\s*/i,
+      /^(gastei|paguei|comprei|adiciona|adicione|recebi|ganhei|entrou|caiu)\s*/i,
       '',
     )
     .replace(/R\$\s*/gi, '')
@@ -109,6 +113,7 @@ export function parseMessage(message, context = null) {
     .replace(/[.!?]+$/, '')
     .trim()
   if (!title && inherited) title = context.title || ''
+  if (!title && income && amount) title = 'Receita'
   title = title ? title[0].toUpperCase() + title.slice(1) : ''
   const intent = inherited
     ? context.intent

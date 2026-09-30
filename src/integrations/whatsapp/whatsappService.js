@@ -1,4 +1,4 @@
-﻿import { parseMessage, normalize } from './messageParser.js'
+import { parseMessage, normalize } from './messageParser.js'
 import {
   createTransactionService,
   normalizeTransaction,
@@ -78,6 +78,17 @@ export function answerQuery(parsed, snapshot) {
       const goals = snapshot.goals.filter(
         (g) => !parsed.query || normalize(g.title).includes(parsed.query),
       )
+      if (!parsed.query && goals.length > 1)
+        return (
+          '🎯 Suas metas\n\n' +
+          goals
+            .slice(0, 8)
+            .map((g) => {
+              const m = goalMetrics(g, Math.max(0, sum.balance))
+              return `${g.title}: ${currency(g.current_amount)} de ${currency(g.target_amount)} (${Math.round(m.progress)}%).`
+            })
+            .join('\n')
+        )
       if (goals.length !== 1)
         return goals.length
           ? `Informe o nome da meta: ${goals
@@ -109,7 +120,8 @@ export function createWhatsAppService({ client, gateway }) {
         if (msg.link_hash) {
           const linked = await rpc(client, 'fc_wa_link', args)
           response = linked
-            ? 'WhatsApp vinculado ao FinanCerto. ' + HELP
+            ? '✅ WhatsApp conectado ao FinanCerto.\n\nAgora você pode controlar suas finanças por aqui.\n\n' +
+              HELP
             : 'Código inválido, expirado ou já utilizado. Gere outro no Perfil do app. Desconecte um vínculo existente antes de trocar de conta.'
           intent = 'link'
         } else {

@@ -1,3 +1,5 @@
+> Documenta??o da implementa??o Meta anterior. Para esta atualiza??o WAHA, use [WHATSAPP-WAHA.md](../../../docs/WHATSAPP-WAHA.md) e confira as pend?ncias de implanta??o.
+
 ﻿# Ativação do WhatsApp — FinanCerto
 
 Backend publicado no Supabase existente `fzqstnkrklgficdurqsd`:

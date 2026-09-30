@@ -8,10 +8,11 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "node --test tests/finance.test.mjs tests/migration.test.mjs tests/supabase-config.test.mjs tests/whatsapp.test.mjs",
+    "test": "node --test tests/finance.test.mjs tests/migration.test.mjs tests/supabase-config.test.mjs tests/whatsapp.test.mjs tests/waha.test.mjs",
     "test:runtime": "playwright test",
     "test:real": "playwright test --config playwright.real.config.mjs",
-    "check:supabase": "node scripts/check-supabase.mjs"
+    "check:supabase": "node scripts/check-supabase.mjs",
+    "test:production": "playwright test --config playwright.production.config.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

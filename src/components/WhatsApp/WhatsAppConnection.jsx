@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../../supabase/client.js'
 import { Alert } from '../UI.jsx'
 async function invoke(action) {
@@ -31,10 +31,24 @@ export default function WhatsAppConnection() {
           if (active) setError(e.message)
         })
     refresh()
-    const timer = setInterval(refresh, 10000)
+    const channel = supabase
+      .channel('whatsapp-connection-status')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'whatsapp_connections' },
+        refresh,
+      )
+      .subscribe()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
       active = false
-      clearInterval(timer)
+      supabase.removeChannel(channel)
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [])
   async function act(action) {
@@ -64,14 +78,12 @@ export default function WhatsAppConnection() {
       </span>
       <p>
         {connected
-          ? status.connection.phone_e164
+          ? status.connection.phone_masked ||
+            '(**) *****-' + (status.connection.phone_e164 || '').slice(-4)
           : 'Registre e consulte suas finanças por mensagem.'}
       </p>
       {status && !status.configured && (
-        <p>
-          A ativação do número empresarial +55 62 98276-7026 está aguardando
-          configuração na Meta.
-        </p>
+        <p>A conexão do WhatsApp empresarial está sendo configurada.</p>
       )}
       {connected ? (
         <button
@@ -93,9 +105,10 @@ export default function WhatsAppConnection() {
       {code && (
         <div className="stack">
           <p>
-            Envie <strong>VINCULAR {code.code}</strong> para +55 62 98276-7026.
-            Válido até {new Date(code.expiresAt).toLocaleTimeString('pt-BR')}.
-            Não compartilhe o código.
+            Envie <strong>VINCULAR {code.code}</strong> para{' '}
+            {code.businessPhone}. Válido até{' '}
+            {new Date(code.expiresAt).toLocaleTimeString('pt-BR')}. Não
+            compartilhe o código.
           </p>
           <a
             className="button secondary"

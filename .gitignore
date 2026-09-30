@@ -30,3 +30,6 @@ supabase/.temp/
 .cache/
 test-results/
 playwright-report/
+
+!.env.waha.example
+.netlify/

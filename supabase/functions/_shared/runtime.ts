@@ -1,17 +1,17 @@
-﻿import { createClient } from 'npm:@supabase/supabase-js@2.112.4'
+import {
+  createProvider,
+  providerConfigured,
+  providerName,
+} from './providers/index.js'
+import { createClient } from 'npm:@supabase/supabase-js@2.112.4'
 import {
   createWhatsAppService,
   rpc,
 } from '../../../src/integrations/whatsapp/whatsappService.js'
 export const env = (name: string) => Deno.env.get(name) || ''
-export const configured = () =>
-  [
-    'WHATSAPP_ACCESS_TOKEN',
-    'WHATSAPP_PHONE_NUMBER_ID',
-    'WHATSAPP_BUSINESS_ACCOUNT_ID',
-    'META_APP_SECRET',
-    'WHATSAPP_VERIFY_TOKEN',
-  ].every((n) => !!env(n))
+export const configured = () => providerConfigured(env)
+export const provider = () => createProvider(env)
+export const activeProvider = () => providerName(env)
 export const admin = () =>
   createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -19,36 +19,7 @@ export const admin = () =>
 export function service(client: ReturnType<typeof admin>) {
   return createWhatsAppService({
     client,
-    gateway: {
-      async send(to: string, body: string) {
-        if (!configured()) throw new Error('Meta not configured')
-        const version = env('WHATSAPP_GRAPH_API_VERSION') || 'v23.0'
-        if (!/^v\d+\.0$/.test(version)) throw new Error('Invalid Graph version')
-        const result = await fetch(
-          `https://graph.facebook.com/${version}/${env('WHATSAPP_PHONE_NUMBER_ID')}/messages`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${env('WHATSAPP_ACCESS_TOKEN')}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              messaging_product: 'whatsapp',
-              recipient_type: 'individual',
-              to,
-              type: 'text',
-              text: { body, preview_url: false },
-            }),
-            signal: AbortSignal.timeout(12000),
-          },
-        )
-        if (!result.ok) throw new Error('Meta delivery failed')
-        const data = await result.json()
-        if (!data.messages?.[0]?.id)
-          throw new Error('Missing Meta acknowledgement')
-        return data.messages[0].id
-      },
-    },
+    gateway: provider(),
   })
 }
 export async function drain() {
@@ -60,6 +31,7 @@ export async function drain() {
   const { data: queue, error } = await client
     .from('whatsapp_messages')
     .select('id')
+    .eq('provider', activeProvider())
     .in('status', ['queued', 'processing'])
     .lt('attempts', 5)
     .lte('next_attempt_at', now)
@@ -70,6 +42,7 @@ export async function drain() {
   const { data: out, error: outError } = await client
     .from('whatsapp_messages')
     .select('id')
+    .eq('provider', activeProvider())
     .in('delivery_status', ['pending', 'sending'])
     .lt('delivery_attempts', 8)
     .lte('delivery_next_at', now)
