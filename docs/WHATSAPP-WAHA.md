@@ -60,6 +60,24 @@ Em produção, publique a API por um proxy HTTPS do servidor, preservando `X-Api
 
 ## Sessão empresarial e QR
 
+### HTTPS no servidor novo
+
+O override `docker-compose.waha.production.yml` fornece proxy Caddy com certificados e renovação automáticos. Use um servidor exclusivo com Linux, Docker Compose, pelo menos 2 vCPU e 4 GB de RAM. Aponte o registro DNS de `WAHA_DOMAIN` para esse servidor e libere as portas 80/443. Mantenha a API WAHA na porta 3000 restrita ao loopback.
+
+**Restrição do proprietário: somente serviços gratuitos.** A opção pesquisada é Oracle Cloud Always Free, `VM.Standard.A1.Flex`, Ubuntu ARM, 2 OCPUs, 4 GB de RAM e volume de boot de 50 GB, desde que todos os recursos estejam dentro da franquia disponível da conta e região principal. A documentação consultada em 29/09/2026 informa 2 OCPUs/12 GB totais para contas Always Free. Não usar recursos pagos, créditos temporários como substituto da franquia permanente ou upgrade Pay As You Go. A Oracle pode não ter capacidade disponível e pode retomar instâncias ociosas; não é garantia de disponibilidade contínua. A conta e o servidor ainda não foram criados nesta execução.
+
+Para essa VM ARM, usar imagem WAHA `devlikeapro/waha:noweb-arm-<versão>` ou digest ARM64 validado, não a imagem x86. Referências: [Oracle Always Free](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm), [imagens WAHA](https://waha.devlike.pro/docs/how-to/engines/), [Caddy em Docker](https://caddyserver.com/docs/running#docker-compose).
+
+Preencha `CADDY_IMAGE` com tag/digest fixo da imagem oficial `caddy`, `WAHA_DOMAIN` com o hostname (sem protocolo/caminho) e `TLS_EMAIL` com o contato dos certificados. Configure `WAHA_BASE_URL=https://<WAHA_DOMAIN>` no Supabase. Nenhuma contratação de servidor foi feita por este arquivo.
+
+```sh
+docker compose --env-file .env.waha -f docker-compose.waha.yml -f docker-compose.waha.production.yml config --quiet
+docker compose --env-file .env.waha -f docker-compose.waha.yml -f docker-compose.waha.production.yml up -d
+docker compose --env-file .env.waha -f docker-compose.waha.yml -f docker-compose.waha.production.yml ps
+```
+
+Não compartilhe a saída de `docker compose config` sem `--quiet`, pois ela contém variáveis resolvidas. Preserve os volumes `waha_sessions`, `waha_tls_data` e `waha_tls_config` nas reinicializações. O proxy não configura logs de acesso com headers/corpos das mensagens. A contratação e a validação real de TLS dependem do servidor e DNS disponíveis.
+
 Inclua `SUPABASE_URL` e `WHATSAPP_ADMIN_SECRET` em um arquivo privado, por exemplo `.cache/whatsapp-admin.env`. O script abaixo não imprime credenciais.
 
 ```powershell

@@ -1,0 +1,26 @@
+# Combine with docker-compose.waha.yml. The existing WAHA port stays loopback-only.
+services:
+  caddy:
+    image: ${CADDY_IMAGE:?Set a tested caddy tag or digest}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      WAHA_DOMAIN: ${WAHA_DOMAIN:?Set the DNS hostname pointing to this server}
+      TLS_EMAIL: ${TLS_EMAIL:?Set the certificate contact email}
+    volumes:
+      - ./infra/waha/Caddyfile:/etc/caddy/Caddyfile:ro
+      - waha_tls_data:/data
+      - waha_tls_config:/config
+    depends_on:
+      waha:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+volumes:
+  waha_tls_data:
+  waha_tls_config:

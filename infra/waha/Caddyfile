@@ -1,0 +1,8 @@
+{
+    email {$TLS_EMAIL}
+    admin off
+}
+
+{$WAHA_DOMAIN} {
+    reverse_proxy waha:3000
+}
