@@ -19,7 +19,7 @@ Deno.serve(async (request) => {
   if (error || !user) return json({ error: 'Authentication required' }, 401)
   try {
     const businessPhone = (
-      env('WHATSAPP_BUSINESS_PHONE') || '5562982767026'
+      env('WHATSAPP_BUSINESS_PHONE') || '5562981833142'
     ).replace(/^\+/, '')
     if (!/^[1-9]\d{7,14}$/.test(businessPhone))
       throw new Error('Invalid business phone')

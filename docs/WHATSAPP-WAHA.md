@@ -37,7 +37,7 @@ O arquivo privado de secrets deve conter somente variáveis do backend, conforme
 | `WAHA_SESSION` | `default` para uma sessão; mantenha estável após ativar |
 | `WAHA_WEBHOOK_SECRET` | Segredo aleatório do HMAC, configurado ao criar a sessão |
 | `WHATSAPP_ADMIN_SECRET` | Credencial independente para operação administrativa |
-| `WHATSAPP_BUSINESS_PHONE` | Número empresarial internacional, só dígitos; padrão preservado: 5562982767026 |
+| `WHATSAPP_BUSINESS_PHONE` | Número empresarial internacional, só dígitos; atendimento FinanCerto: 5562981833142 |
 | `WHATSAPP_WORKER_SECRET` | Preserve o valor já usado pelo cron/Vault |
 | `WAHA_IMAGE` | Imagem `devlikeapro/waha` com tag/digest fixo, validado no servidor |
 | `WAHA_PORT` | Porta local do host; padrão 3000 |
