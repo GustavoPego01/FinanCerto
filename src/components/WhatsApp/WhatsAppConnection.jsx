@@ -5,9 +5,20 @@ async function invoke(action) {
   const { data, error } = await supabase.functions.invoke('whatsapp-link', {
     body: { action },
   })
-  if (error || data?.error)
+  let serverError = data?.error
+  if (error?.context instanceof Response) {
+    try {
+      const body = await error.context.clone().json()
+      if (typeof body?.error === 'string') serverError = body.error
+    } catch {
+      // Network errors and non-JSON responses use the fallback below.
+    }
+    if (error.context.status === 401)
+      serverError = 'Sua sessão expirou. Entre novamente para conectar o WhatsApp.'
+  }
+  if (error || serverError)
     throw new Error(
-      data?.error ||
+      serverError ||
         'Não foi possível acessar a conexão WhatsApp. Tente novamente.',
     )
   return data

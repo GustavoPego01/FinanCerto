@@ -21,7 +21,7 @@ async function mockBackend(page, { onboarded = true } = {}) {
       status: 200,
       json: {
         configured: false,
-        businessPhone: '+5562982767026',
+        businessPhone: '+5562981833142',
         connection: null,
       },
     }),
@@ -150,6 +150,21 @@ async function mockBackend(page, { onboarded = true } = {}) {
   })
   return data
 }
+test('WhatsApp displays the server explanation when code generation is refused', async ({ page }) => {
+  await mockBackend(page)
+  const explanation = 'Aguarde 15 minutos antes de gerar outro código.'
+  await page.route('**/functions/v1/whatsapp-link', (route) => {
+    const { action } = route.request().postDataJSON()
+    return route.fulfill(action === 'request_code'
+      ? { status: 409, json: { error: explanation } }
+      : { status: 200, json: { configured: true, businessPhone: '+5562981833142', connection: null } })
+  })
+  await login(page)
+  await page.goto('/#perfil')
+  await page.getByRole('button', { name: 'Gerar código de vínculo' }).click()
+  await expect(page.getByText(explanation, { exact: true })).toBeVisible()
+})
+
 async function login(page) {
   await page.goto('/')
   await page.getByLabel('E-mail', { exact: true }).fill(user.email)
