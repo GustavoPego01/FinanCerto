@@ -26,15 +26,16 @@
 
 O teste antigo do PWA verificava a presença do formulário antes de a sessão terminar de carregar. Ele foi corrigido para aguardar o formulário ou o Dashboard e passou na repetição. A suíte de interface simulada também passou a interceptar a Edge Function de status WhatsApp, evitando uma chamada externa acidental no teste isolado.
 
-## Pendente de infraestrutura/acesso
+## Atualiza??o de implanta??o ? 01/10/2026 UTC
 
-1. **Supabase administrativo:** a CLI retornou `403 — Your account does not have the necessary privileges`. A API pública funciona, mas a conta administrativa conectada precisa de acesso ao projeto existente `fzqstnkrklgficdurqsd`.
-2. **Auditoria remota antes/depois:** contagens/hashes globais de Auth, profiles, transactions e metas não puderam ser consultados nesta sessão sem esse acesso. Nenhuma migration remota ou alteração financeira de produção foi executada. O SQL de auditoria foi preparado.
-3. **Implantação do backend:** aplicar a migration aditiva, configurar secrets e publicar as quatro Edge Functions. O frontend atualizado já foi publicado na Netlify; veja [NETLIFY.md](NETLIFY.md).
-4. **WAHA:** disponibilizar servidor Docker persistente, domínio HTTPS, versão fixada, API key, sessão e segredo HMAC. O daemon Docker local não estava ativo; não houve teste de execução da imagem.
-5. **Aparelho empresarial:** escanear o QR. Esta etapa depende do WhatsApp conectado ao número real.
-6. **Aceite ponta a ponta:** enviar mensagens de duas contas QA pelo WhatsApp real e conferir respostas, isolamento, Realtime sem F5 e recuperação após reinício do container. O Realtime existente foi preservado, mas o percurso WAHA real → Supabase remoto → Dashboard não foi executado.
+A conta Supabase correta foi autenticada. A simula??o identificou apenas a migra??o WAHA pendente; sua aplica??o foi conclu?da. Contagens e hashes de usu?rios, perfis, transa??es, metas e perfis financeiros foram comparados imediatamente antes/depois e permaneceram id?nticos.
 
-Não considerar esta entrega como WAHA já ativo em produção. Código, migration, configuração Docker e operação administrativa estão preparados; os testes locais e o teste real do PWA não substituem a ativação do gateway.
+As quatro fun??es foram publicadas com segredos privados. Chamadas sem autentica??o retornam 401. O worker agendado permanece ativo a cada minuto. O gateway Railway executa WAHA 2026.9.1/NOWEB, com HTTPS e volume persistente; o Supabase recebeu eventos HMAC da sess?o. A sess?o est? em SCAN_QR_CODE, aguardando pareamento. Os 15 testes de c?digo/SQL e o teste PWA em produ??o passaram novamente.
 
-Procedimento: [WHATSAPP-WAHA.md](WHATSAPP-WAHA.md).
+## Pendente de valida??o pelo aparelho
+
+1. Escanear o QR usando o WhatsApp destinado ao FinanCerto e confirmar o status WORKING e o n?mero empresarial.
+2. Validar v?nculo e mensagem real, resposta, isolamento, Realtime sem F5 e recupera??o ap?s rein?cio. Os testes locais n?o substituem esse percurso real.
+3. Confirmar recebimento e funcionamento do e-mail de recupera??o de senha no dom?nio Netlify.
+
+O backend e o gateway est?o publicados; o atendimento WhatsApp s? estar? operacional ap?s pareamento e valida??o de mensagens. A hospedagem Railway usa cr?ditos tempor?rios, sem contrata??o paga. Evid?ncias: [RAILWAY.md](RAILWAY.md).

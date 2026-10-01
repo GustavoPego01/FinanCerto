@@ -36,13 +36,8 @@ A publicação atual usa a CLI autenticada; integração automática entre GitHu
 
 ## Supabase e WhatsApp
 
-Com acesso administrativo ao **FinanCerto**, adicionar às URLs permitidas do Auth, preservando as existentes:
+Em 01/10/2026 UTC, o acesso administrativo ao FinanCerto foi confirmado. A URL principal do Auth foi alterada para https://financerto-nexora.netlify.app, e esse dom?nio com seus caminhos foi adicionado ? lista de redirecionamentos, preservando os endere?os existentes. A recupera??o de senha por e-mail ainda precisa de valida??o pelo destinat?rio.
 
-- `https://financerto-nexora.netlify.app`
-- `https://financerto-nexora.netlify.app/?recovery=1`
+A migra??o WAHA e as quatro Edge Functions foram publicadas. O gateway est? no Railway com HTTPS e volume persistente; o webhook HMAC foi validado. A sess?o aguarda pareamento pelo QR. Netlify hospeda o frontend.
 
-Após a migração de domínio, conferir confirmação de cadastro e recuperação de senha. Login com senha usa o mesmo Supabase e não exige migração de usuários. Ajustar a Site URL somente quando o novo domínio público estiver confirmado.
-
-A conta Supabase atualmente autenticada não tem acesso administrativo ao FinanCerto. A migration aditiva e as Edge Functions WAHA aguardam essa conta correta; o gateway também requer servidor Docker persistente, HTTPS e pareamento do número empresarial. Netlify hospeda o frontend, não o processo persistente WAHA.
-
-Operação: [WHATSAPP-WAHA.md](WHATSAPP-WAHA.md). Evidências e limites: [WHATSAPP-VALIDACAO.md](WHATSAPP-VALIDACAO.md).
+Opera??o e evid?ncias atualizadas: [RAILWAY.md](RAILWAY.md), [WHATSAPP-WAHA.md](WHATSAPP-WAHA.md) e [WHATSAPP-VALIDACAO.md](WHATSAPP-VALIDACAO.md).

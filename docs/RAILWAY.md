@@ -23,7 +23,7 @@ As variáveis `WAHA_DASHBOARD_ENABLED`, `WHATSAPP_SWAGGER_ENABLED` e `WAHA_PRINT
 - `GET /api/server/version` autenticado: 2026.9.1, NOWEB, linux/x64.
 - `/dashboard` e `/swagger`: 404.
 
-Estes testes comprovam a disponibilidade e proteção da API. O WhatsApp ainda depende da publicação do backend Supabase, configuração do webhook e leitura do QR pelo proprietário. Não há validação de mensagens de ponta a ponta ainda.
+Estes testes comprovam a disponibilidade e proteção da API. Em 01/10/2026 UTC, o backend Supabase foi publicado e a sessão `default` criada com webhook HMAC. O webhook recebeu eventos autenticados; a sessão aguarda leitura do QR pelo proprietário. Não há validação de mensagens reais de ponta a ponta ainda.
 
 ## Custo e continuidade
 
@@ -35,4 +35,8 @@ A tentativa de limitar o consumo a US$ 1 foi rejeitada pelo Railway: o limite r�
 
 Confirme a conta com `npx.cmd --yes @railway/cli whoami --json` antes de operar. Use o projeto e serviço acima explicitamente quando houver dúvida de vínculo. Não remova o volume: ele preserva as credenciais da sessão.
 
-O próximo passo é obter acesso administrativo ao Supabase **fzqstnkrklgficdurqsd** e seguir os preflights de [WHATSAPP-WAHA.md](WHATSAPP-WAHA.md). A CLI Supabase, na última verificação, ainda só mostrava o projeto de barbearia; nenhuma alteração foi feita nele.
+O acesso ao Supabase **fzqstnkrklgficdurqsd** foi confirmado e os preflights de [WHATSAPP-WAHA.md](WHATSAPP-WAHA.md) executados. Somente a migração `202609290001_waha_provider.sql` estava pendente e foi aplicada. Contagens e hashes de `auth.users`, `profiles`, `transactions`, `goals` e `user_financial_profiles` permaneceram idênticos imediatamente após a migração. As evidências estão em `.cache/waha-fingerprints-before.json` e `.cache/waha-fingerprints-after.json`, fora do Git.
+
+As funções `whatsapp-webhook`, `whatsapp-worker`, `whatsapp-link` e `whatsapp-admin` foram publicadas. As quatro retornam 401 em chamadas sem autenticação. O cron `financerto-whatsapp-retry` permanece ativo a cada minuto; seu segredo foi preservado. A URL principal do Auth agora é `https://financerto-nexora.netlify.app`, com redirecionamentos de produção e endereços locais existentes preservados. Os 15 testes automatizados e o teste PWA no site de produção passaram.
+
+Para concluir, obtenha um QR atualizado com o script administrativo e conecte o aparelho destinado ao FinanCerto. Após o status `WORKING`, confirme o número empresarial e faça o teste de vínculo e mensagem pelo usuário, sem usar dados financeiros reais como massa de teste. Nenhum projeto da barbearia foi alterado.
