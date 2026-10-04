@@ -180,22 +180,32 @@ export function createWhatsAppService({ client, gateway }) {
     async deliver(id) {
       const out = await rpc(client, 'fc_wa_claim_delivery', { p_id: id })
       if (!out) return
+      let providerId
       try {
-        const providerId = await gateway.send(out.waId, out.text)
-        await rpc(client, 'fc_wa_delivery_result', {
-          p_id: id,
-          p_lease: out.lease,
-          p_success: true,
-          p_provider_id: providerId,
-        })
-      } catch {
+        providerId = await gateway.send(out.waId, out.text)
+      } catch (error) {
         await rpc(client, 'fc_wa_delivery_result', {
           p_id: id,
           p_lease: out.lease,
           p_success: false,
-          p_error: 'DELIVERY_FAILED',
+          p_error:
+            error.retryable === true
+              ? 'DELIVERY_RETRYABLE'
+              : error.deliveryUnknown === false ||
+                  (error.status >= 400 && error.status < 500)
+                ? 'DELIVERY_REJECTED'
+                : 'DELIVERY_UNKNOWN',
         })
+        return
       }
+      // A database failure after provider acceptance must never turn into a resend.
+      // An expired sending lease is quarantined by SQL for manual reconciliation.
+      await rpc(client, 'fc_wa_delivery_result', {
+        p_id: id,
+        p_lease: out.lease,
+        p_success: true,
+        p_provider_id: providerId,
+      })
     },
   }
 }

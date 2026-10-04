@@ -18,6 +18,19 @@ test('production PWA registers, caches only shell and renders offline', async ({
     (await fetch('/manifest.webmanifest')).json(),
   )
   expect(manifest.display).toBe('standalone')
+  expect(manifest.name).toBe('FinanCerto')
+  expect(manifest.scope).toBe('/')
+  expect(manifest.start_url).toBe('/')
+  await expect(
+    page.locator('meta[name="apple-mobile-web-app-capable"]'),
+  ).toHaveAttribute('content', 'yes')
+  await expect(
+    page.locator('meta[name="apple-mobile-web-app-title"]'),
+  ).toHaveAttribute('content', 'FinanCerto')
+  const appleIcon = await page
+    .locator('link[rel="apple-touch-icon"]')
+    .getAttribute('href')
+  expect((await page.request.get(appleIcon)).ok()).toBe(true)
   expect(manifest.icons.map((icon) => icon.sizes)).toEqual(
     expect.arrayContaining(['192x192', '512x512']),
   )

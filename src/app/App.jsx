@@ -26,15 +26,17 @@ const EducationPage = lazy(
   () => import('../pages/EducacaoFinanceira/EducationPage.jsx'),
 )
 const ProfilePage = lazy(() => import('../pages/Perfil/ProfilePage.jsx'))
+const initialPage = () =>
+  window.location.hash.slice(1) ||
+  window.location.pathname.replace(/^\/|\/$/g, '') ||
+  'dashboard'
 function Workspace({ user }) {
   const finance = useFinance(user)
-  const [page, setPage] = useState(
-      window.location.hash.slice(1) || 'dashboard',
-    ),
+  const [page, setPage] = useState(initialPage),
     [month, setMonth] = useState(monthKey()),
     [editing, setEditing] = useState(undefined)
   useEffect(() => {
-    const change = () => setPage(window.location.hash.slice(1) || 'dashboard')
+    const change = () => setPage(initialPage())
     window.addEventListener('hashchange', change)
     return () => window.removeEventListener('hashchange', change)
   }, [])

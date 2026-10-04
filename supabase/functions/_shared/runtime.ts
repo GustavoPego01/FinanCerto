@@ -44,7 +44,6 @@ export async function drain() {
     .select('id')
     .eq('provider', activeProvider())
     .in('delivery_status', ['pending', 'sending'])
-    .lt('delivery_attempts', 8)
     .lte('delivery_next_at', now)
     .order('created_at')
     .limit(10)

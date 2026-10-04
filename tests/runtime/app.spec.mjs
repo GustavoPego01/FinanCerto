@@ -150,14 +150,25 @@ async function mockBackend(page, { onboarded = true } = {}) {
   })
   return data
 }
-test('WhatsApp displays the server explanation when code generation is refused', async ({ page }) => {
+test('WhatsApp displays the server explanation when code generation is refused', async ({
+  page,
+}) => {
   await mockBackend(page)
   const explanation = 'Aguarde 15 minutos antes de gerar outro código.'
   await page.route('**/functions/v1/whatsapp-link', (route) => {
     const { action } = route.request().postDataJSON()
-    return route.fulfill(action === 'request_code'
-      ? { status: 409, json: { error: explanation } }
-      : { status: 200, json: { configured: true, businessPhone: '+5562981833142', connection: null } })
+    return route.fulfill(
+      action === 'request_code'
+        ? { status: 409, json: { error: explanation } }
+        : {
+            status: 200,
+            json: {
+              configured: true,
+              businessPhone: '+5562981833142',
+              connection: null,
+            },
+          },
+    )
   })
   await login(page)
   await page.goto('/#perfil')
@@ -282,8 +293,18 @@ test('all requested widths fit without document overflow', async ({ page }) => {
   await mockBackend(page)
   await login(page)
   await expect(page.getByRole('heading', { name: /Olá, Marina/ })).toBeVisible()
-  for (const width of [320, 375, 390, 430, 768, 1366, 1920]) {
-    await page.setViewportSize({ width, height: 900 })
+  for (const [width, height] of [
+    [320, 900],
+    [360, 800],
+    [375, 900],
+    [390, 844],
+    [412, 915],
+    [430, 932],
+    [768, 900],
+    [1366, 900],
+    [1920, 900],
+  ]) {
+    await page.setViewportSize({ width, height })
     for (const route of [
       'dashboard',
       'transacoes',
@@ -291,8 +312,12 @@ test('all requested widths fit without document overflow', async ({ page }) => {
       'metas',
       'perfil',
     ]) {
-      await page.goto(`/#${route}`)
+      await page.goto(`/${route}`)
       await expect(page.locator('main h1')).toBeVisible()
+      if (route === 'perfil')
+        await expect(
+          page.getByRole('heading', { name: 'Meu perfil', exact: true }),
+        ).toBeVisible()
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,

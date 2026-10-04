@@ -114,6 +114,9 @@ test('WAHA authenticates raw bytes with SHA512 and rejects forged events, groups
   )
   for (const patch of [
     { fromMe: true },
+    { from_me: true },
+    { key: { fromMe: true } },
+    { _data: { key: { fromMe: true } } },
     { from: '123@g.us' },
     { from: 'status@broadcast' },
     { from: '123456789@lid' },
@@ -245,6 +248,8 @@ test('WAHA + real PostgreSQL functions: A/B linking, isolation, queries, replay,
       '202609120006_whatsapp_link_replay_guard.sql',
       '202609290001_waha_provider.sql',
       '202609290001_waha_provider.sql',
+      '202610010001_whatsapp_delivery_ack.sql',
+      '202610010001_whatsapp_delivery_ack.sql',
     ])
       await db.exec(fs.readFileSync('supabase/migrations/' + file, 'utf8'))
     const client = {
@@ -285,9 +290,9 @@ test('WAHA + real PostgreSQL functions: A/B linking, isolation, queries, replay,
     const provider = new WahaWhatsAppProvider({
       ...config,
       fetchImpl: async () => {
-        if (offline) return new Response('', { status: 503 })
+        if (offline) return new Response('', { status: 429 })
         sends++
-        return Response.json({ id: 'sent-' + sends })
+        return Response.json({ key: { id: 'sent-' + sends, fromMe: true } })
       },
     })
     const service = createWhatsAppService({ client, gateway: provider })
@@ -384,6 +389,55 @@ test('WAHA + real PostgreSQL functions: A/B linking, isolation, queries, replay,
     await service.process(expense.id)
     assert.equal(sends, 1)
     assert.equal((await row(expense.id)).delivery_status, 'sent')
+    assert.ok((await row(expense.id)).delivered_at)
+    // Provider accepted the send, but persistence failed: never send it again.
+    const uncertain = await enqueue('oi')
+    await service.process(uncertain.id)
+    const failedAck = createWhatsAppService({
+      gateway: provider,
+      client: {
+        rpc: (name, args) =>
+          name === 'fc_wa_delivery_result'
+            ? Promise.resolve({ data: null, error: { code: '08006' } })
+            : client.rpc(name, args),
+      },
+    })
+    await assert.rejects(() => failedAck.deliver(uncertain.id))
+    const sendsAfterAcceptance = sends
+    await db.query(
+      "update whatsapp_messages set delivery_lease_until=now()-interval '1 second' where id=$1",
+      [uncertain.id],
+    )
+    for (let i = 0; i < 5; i++) await service.deliver(uncertain.id)
+    assert.equal(sends, sendsAfterAcceptance)
+    assert.equal((await row(uncertain.id)).delivery_status, 'unknown')
+    const timeout = await enqueue('oi')
+    await service.process(timeout.id)
+    const ambiguous = createWhatsAppService({
+      client,
+      gateway: {
+        send: async () => {
+          throw new Error('timeout after acceptance')
+        },
+      },
+    })
+    await ambiguous.deliver(timeout.id)
+    assert.equal((await row(timeout.id)).delivery_status, 'unknown')
+    await service.deliver(timeout.id)
+    assert.equal(sends, sendsAfterAcceptance)
+    const limited = await enqueue('oi')
+    await service.process(limited.id)
+    offline = true
+    for (let i = 0; i < 5; i++) {
+      await db.query(
+        "update whatsapp_messages set delivery_next_at=now()-interval '1 second' where id=$1",
+        [limited.id],
+      )
+      await service.deliver(limited.id)
+    }
+    assert.equal((await row(limited.id)).delivery_status, 'failed')
+    assert.equal((await row(limited.id)).delivery_attempts, 3)
+    offline = false
     assert.equal(
       (
         await db.query(

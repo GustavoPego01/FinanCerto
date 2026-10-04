@@ -40,6 +40,8 @@ export class WahaWhatsAppProvider {
     if (!response.ok)
       throw Object.assign(new Error('WAHA request failed'), {
         status: response.status,
+        retryable: response.status === 429,
+        deliveryUnknown: response.status >= 500,
       })
     return response.status === 204 ? {} : response.json()
   }
@@ -58,7 +60,10 @@ export class WahaWhatsAppProvider {
       text,
       linkPreview: false,
     })
-    const id = typeof data.id === 'string' ? data.id : data.id?._serialized
+    const id =
+      typeof data.id === 'string'
+        ? data.id
+        : data.id?._serialized || data.key?.id
     if (!id) throw new Error('Missing WAHA acknowledgement')
     return id
   }
@@ -158,6 +163,10 @@ export class WahaWhatsAppProvider {
       !messageId ||
       messageId.length > 300 ||
       msg.fromMe !== false ||
+      msg.from_me === true ||
+      msg.key?.fromMe === true ||
+      msg._data?.key?.fromMe === true ||
+      msg.from === payload.me?.id ||
       msg.hasMedia === true ||
       typeof msg.body !== 'string' ||
       !msg.body.trim() ||
