@@ -24,4 +24,4 @@ Variáveis públicas Netlify: `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_K
 
 A publicação final usou a API oficial Netlify com o build já validado e regras de redirects/headers derivadas do netlify.toml, após a CLI ficar sem progresso. HTTPS, manifest, SW e cache headers foram conferidos. A hospedagem WAHA permanece no Railway, com crédito temporário e sem contratação paga; não há garantia de custo zero permanente.
 
-Deploy contínuo: netlify.toml e repositório estão preparados; a conexão GitHub–Netlify ainda precisa ser confirmada. Não considerar push como deploy automático até essa conexão ser validada.
+Deploy contínuo: repositório GitHub e branch main foram configurados no site. O build remoto falhou ao clonar com `Host key verification failed`; a publicação manual validada permanece ativa. Builds automáticos foram pausados para evitar consumo em novas tentativas. É necessário reautorizar/reconectar o GitHub no painel Netlify e então retomar builds. Não considerar push como deploy automático até essa conexão ser validada.
